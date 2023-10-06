@@ -8,7 +8,6 @@ on:
         description: 'Buld package names'
         type: string
         required: true
-        default: '[""]'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -24,11 +23,14 @@ jobs:
     runs-on: macOS-13
     strategy:
       matrix:
-        packages: ${{ fromJSON(github.event.inputs.packages)}}
+        packages: ${{ split(github.event.inputs.packages, ',') }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         
       - name: Build Package
-        run: xcodebuild clean build -skipPackagePluginValidation -scheme ${{ matrix.packages }} -destination 'platform=iOS Simulator,name=iPhone 8,OS=16.4' | xcpretty && exit ${PIPESTATUS[0]}
+        run: |
+          for package in "${{ matrix.packages[@] }}"; do
+            xcodebuild clean build -skipPackagePluginValidation -scheme "$package" -destination 'platform=iOS Simulator,name=iPhone 8,OS=16.4' | xcpretty && exit ${PIPESTATUS[0]}
+          done
