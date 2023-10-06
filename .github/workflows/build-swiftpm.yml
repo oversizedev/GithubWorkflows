@@ -4,17 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       packages:
-        description: 'Build package names (comma-separated)'
         type: string
+        description: Build package names
         required: true
-        default: "['OversizeCore','OversizeCore']"
+        default: "'OversizeCore','OversizeCore'"
   workflow_call:
     inputs:
       packages:
-        description: 'Build package names (comma-separated)'
         type: string
+        description: Build package names
         required: true
-  
+        default: "'OversizeCore','OversizeCore'"
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -24,13 +25,23 @@ env:
 
 jobs:
 
+  prebuild:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.set-matrix.outputs.packages }}
+    steps:
+      - id: set-matrix
+        run: |
+          echo "::set-output name=packages::${{format('[{0}]',github.event.inputs.packages)}}"
+
   swiftpm:
     name: Build
     runs-on: macOS-13
+    needs: prebuild
     strategy:
       fail-fast: false
       matrix:
-        packages: ${{ fromJSON(github.event.inputs.packages) }}
+        packages: ${{fromJSON(needs.prebuild.outputs.packages)}}
 
     steps:
       - name: Checkout
