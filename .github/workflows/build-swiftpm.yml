@@ -28,7 +28,7 @@ jobs:
     runs-on: macOS-13
     strategy:
       matrix:
-        packages: ${{ split(github.event.inputs.packages, ',') }}
+        packages: ${{ fromJSON(github.event.inputs.packages) }}
 
     steps:
       - name: Checkout
