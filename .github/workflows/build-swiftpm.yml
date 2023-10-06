@@ -3,16 +3,16 @@ name: Build Packages
 on:
   workflow_dispatch:
     inputs:
-      packages:
+      package:
+        type: string
         description: Build package names
         required: true
-        default: "'OversizeCore','OversizeCore'"
   workflow_call:
     inputs:
-      packages:
+      package:
+        type: string
         description: Build package names
         required: true
-        default: "'OversizeCore','OversizeCore'"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -22,28 +22,13 @@ env:
   DEVELOPER_DIR: /Applications/Xcode_15.0.app/Contents/Developer
 
 jobs:
-
-  prebuild:
-    runs-on: ubuntu-latest
-    outputs:
-      packages: ${{ steps.set-matrix.outputs.packages }}
-    steps:
-      - id: set-matrix
-        run: |
-          echo "::set-output name=packages::${{format('[{0}]',github.event.inputs.packages)}}"
-
   swiftpm:
     name: Build
     runs-on: macOS-13
-    needs: prebuild
-    strategy:
-      fail-fast: false
-      matrix:
-        packages: ${{fromJSON(needs.prebuild.outputs.packages)}}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         
       - name: Build Package
-        run: xcodebuild clean build -skipPackagePluginValidation -scheme ${{ matrix.packages }} -destination 'platform=iOS Simulator,name=iPhone 8,OS=16.4' | xcpretty && exit ${PIPESTATUS[0]}
+        run: xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=iOS Simulator,name=iPhone 8,OS=16.4' | xcpretty && exit ${PIPESTATUS[0]}
