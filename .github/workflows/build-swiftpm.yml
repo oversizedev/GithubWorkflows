@@ -34,8 +34,5 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         
-      - name: Build Packages
-        run: |
-          for package in "${{ matrix.packages[@] }}"; do
-            xcodebuild clean build -skipPackagePluginValidation -scheme "$package" -destination 'platform=iOS Simulator,name=iPhone 8,OS=16.4' | xcpretty && exit ${PIPESTATUS[0]}
-          done
+      - name: Build Package
+        run: xcodebuild clean build -skipPackagePluginValidation -scheme ${{ matrix.packages }} -destination 'platform=iOS Simulator,name=iPhone 8,OS=16.4' | xcpretty && exit ${PIPESTATUS[0]}
