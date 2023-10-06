@@ -4,14 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       packages:
-        type: string
         description: Build package names
         required: true
         default: "'OversizeCore','OversizeCore'"
   workflow_call:
     inputs:
       packages:
-        type: string
         description: Build package names
         required: true
         default: "'OversizeCore','OversizeCore'"
