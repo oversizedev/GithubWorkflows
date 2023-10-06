@@ -8,6 +8,7 @@ on:
         description: 'Buld package names'
         type: string
         required: true
+        default: '[""]'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
