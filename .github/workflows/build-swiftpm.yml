@@ -7,6 +7,7 @@ on:
         description: 'Build package names (comma-separated)'
         type: string
         required: true
+        default: "['OversizeCore','OversizeCore']"
   workflow_call:
     inputs:
       packages:
