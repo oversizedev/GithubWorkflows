@@ -1,0 +1,25 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+  
+env:
+  DEVELOPER_DIR: /Applications/Xcode_15.0.app/Contents/Developer
+
+jobs: 
+
+  test:
+    name: Tests
+    runs-on: macOS-13
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        
+      - name: Run macOS tests
+        run: swift test -v
