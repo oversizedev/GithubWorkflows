@@ -7,9 +7,6 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
-  
-env:
-  DEVELOPER_DIR: /Applications/Xcode_15.0.app/Contents/Developer
 
 jobs: 
 
@@ -19,7 +16,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode_15.0.app && /usr/bin/xcodebuild -version
         
       - name: Run macOS tests
         run: swift test -v
