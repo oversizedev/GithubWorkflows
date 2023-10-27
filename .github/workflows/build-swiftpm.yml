@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -switch /Applications/Xcode_15.0.app && /usr/bin/xcodebuild -version
+        run: sudo xcode-select -switch /Applications/Xcode_15.1.app && /usr/bin/xcodebuild -version
         
       - name: Set secret
         run: git config --global url."https://${{ secrets.ACTIONS_TOKEN }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
