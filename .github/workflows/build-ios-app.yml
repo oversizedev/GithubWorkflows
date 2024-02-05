@@ -24,7 +24,7 @@ jobs:
 
   example:
     name: Run examples
-    runs-on: macOS-13
+    runs-on: macOS-14
     strategy:
         matrix:
           iosDestination: ['platform=iOS Simulator,OS=16.0,name=iPhone 14']

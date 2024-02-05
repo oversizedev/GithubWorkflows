@@ -17,7 +17,7 @@ on:
 jobs:
   swiftpm:
     name: Build
-    runs-on: macOS-13
+    runs-on: macOS-14
 
     steps:
       - name: Checkout
