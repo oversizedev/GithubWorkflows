@@ -29,8 +29,10 @@ jobs:
           set -euo pipefail
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
 
-      - name: Set secret
-        run: git config --global url."https://${{ secrets.ACTIONS_TOKEN }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
+      - name: Set up Git Credentials
+        run: |
+          git config --global credential.helper store
+          echo "https://github.com/${{ secrets.ACTIONS_TOKEN }}@github.com" > ~/.git-credentials
 
       - name: Build Package
         run: |
