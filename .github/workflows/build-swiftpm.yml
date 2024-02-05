@@ -26,11 +26,11 @@ jobs:
       - name: Set secret
         run: git config --global url."https://${{ secrets.ACTIONS_TOKEN }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
       
-      - name: Set pipefail
-        run: set -euo pipefail
+      # - name: Set pipefail
+      #   run: set -euo pipefail
 
-      - name: Set SwiftPM Plugin config
-        run: defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
+      # - name: Set SwiftPM Plugin config
+      #   run: defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
         
       - name: Build Package
         run: xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=iOS Simulator,name=iPhone 14 Pro,OS=17.0' | xcpretty && exit ${PIPESTATUS[0]}
