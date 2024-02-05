@@ -26,13 +26,9 @@ jobs:
       - name: Setup SwiftPM Config
         run: |
           echo "https://github.com/:username=${{ secrets.ACTIONS_TOKEN }}" >> ~/.netrc
+          git config --global url."https://${{ secrets.ACTIONS_TOKEN }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
           set -euo pipefail
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
-
-      - name: Set up Git Credentials
-        run: |
-          git config --global credential.helper store
-          echo "https://github.com/${{ secrets.ACTIONS_TOKEN }}@github.com" > ~/.git-credentials
 
       - name: Build Package
         run: |
