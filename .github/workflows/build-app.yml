@@ -3,13 +3,9 @@ name: Build Packages
 on:
   workflow_dispatch:
     inputs:
-      folder:
+      path:
         type: string
-        description: Build app folder name
-        required: true
-      project:
-        type: string
-        description: Xcodeproj name
+        description: App xcodeproj file path
         required: true
       scheme:
         type: string
@@ -21,13 +17,9 @@ on:
         required: true
   workflow_call:
     inputs:
-      folder:
+      path:
         type: string
-        description: Build app folder name
-        required: true
-      project:
-        type: string
-        description: Xcodeproj name
+        description: App xcodeproj file path
         required: true
       scheme:
         type: string
@@ -57,6 +49,10 @@ jobs:
           set -euo pipefail
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
 
-      - name: Build iOS
+      - name: Build app
         run: |
-          xcodebuild clean build -skipPackagePluginValidation -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" -scheme "${{ inputs.scheme }}" -destination "${{ inputs.destination }}" | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build \
+            -skipPackagePluginValidation \
+            -project "${{ inputs.path }}.xcodeproj" \
+            -scheme "${{ inputs.scheme }}" \
+            -destination "${{ inputs.destination }}" | xcpretty && exit ${PIPESTATUS[0]}

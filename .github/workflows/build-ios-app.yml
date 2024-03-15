@@ -3,13 +3,9 @@ name: Build Packages
 on:
   workflow_dispatch:
     inputs:
-      folder:
+      path:
         type: string
-        description: Build app folder name
-        required: true
-      project:
-        type: string
-        description: Xcodeproj name
+        description: App xcodeproj file path
         required: true
       scheme:
         type: string
@@ -17,13 +13,9 @@ on:
         required: true
   workflow_call:
     inputs:
-      folder:
+      path:
         type: string
-        description: Build app folder name
-        required: true
-      project:
-        type: string
-        description: Xcodeproj name
+        description: App xcodeproj file path
         required: true
       scheme:
         type: string
@@ -38,7 +30,7 @@ jobs:
     runs-on: macOS-14
     strategy:
         matrix:
-          iosDestination: ['platform=iOS Simulator,OS=16.0,name=iPhone 14']
+          destination: ['platform=iOS Simulator,name=iPhone 15 Pro,OS=17.2', 'platform=iOS Simulator,name=iPhone 14 Pro Max,OS=16.4','platform=iOS Simulator,name=iPad Pro (12.9-inch) (6th generation),OS=17.2']
           
     steps:
       - name: Checkout
@@ -55,7 +47,7 @@ jobs:
         run: |
           xcodebuild clean build \
             -skipPackagePluginValidation \
-            -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" \
+            -project "${{ inputs.path }}.xcodeproj" \
             -scheme "${{ inputs.scheme }}" \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,name=iPhone 15 Pro,OS=17.2" | xcpretty && exit ${PIPESTATUS[0]}
+            -destination "${{ matrix.destination }}" | xcpretty && exit ${PIPESTATUS[0]}
