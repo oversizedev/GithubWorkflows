@@ -54,4 +54,9 @@ jobs:
 
       - name: Build iOS
         run: |
-          xcodebuild clean build -skipPackagePluginValidation -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" -scheme "${{ inputs.scheme }}" -destination "${{ matrix.iosDestination }}" | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build \
+           -skipPackagePluginValidation \
+           -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" \
+           -scheme "${{ inputs.scheme }}" \
+           -sdk iphonesimulator \
+           -destination 'platform=iOS Simulator,name=iPhone 14,OS=16.2' | xcpretty && exit ${PIPESTATUS[0]}
