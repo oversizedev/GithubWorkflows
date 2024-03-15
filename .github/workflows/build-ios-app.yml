@@ -33,7 +33,6 @@ env:
   DEVELOPER_DIR: /Applications/Xcode_15.2.app/Contents/Developer
 
 jobs:
-
   example:
     name: Run examples
     runs-on: macOS-14
@@ -55,8 +54,8 @@ jobs:
       - name: Build iOS
         run: |
           xcodebuild clean build \
-           -skipPackagePluginValidation \
-           -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" \
-           -scheme "${{ inputs.scheme }}" \
-           -sdk iphonesimulator \
-           -destination 'platform=iOS Simulator,name=iPhone 14,OS=16.2' | xcpretty && exit ${PIPESTATUS[0]}
+            -skipPackagePluginValidation \
+            -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" \
+            -scheme "${{ inputs.scheme }}" \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 14,OS=16.2' | xcpretty && exit ${PIPESTATUS[0]}
