@@ -12,7 +12,7 @@ jobs:
 
   test:
     name: Tests
-    runs-on: macOS-13
+    runs-on: macOS-14
 
     steps:
       - name: Checkout
