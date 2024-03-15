@@ -7,9 +7,13 @@ on:
         type: string
         description: Build app folder name
         required: true
-      app:
+      project:
         type: string
-        description: Build app name
+        description: Xcodeproj name
+        required: true
+      scheme:
+        type: string
+        description: App scheme name
         required: true
       destination:
         type: string
@@ -21,9 +25,13 @@ on:
         type: string
         description: Build app folder name
         required: true
-      app:
+      project:
         type: string
-        description: Build app name
+        description: Xcodeproj name
+        required: true
+      scheme:
+        type: string
+        description: App scheme name
         required: true
       destination:
         type: string

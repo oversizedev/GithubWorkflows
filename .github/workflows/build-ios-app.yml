@@ -7,15 +7,27 @@ on:
         type: string
         description: Build app folder name
         required: true
+      project:
+        type: string
+        description: Xcodeproj name
+        required: true
+      scheme:
+        type: string
+        description: App scheme name
+        required: true
   workflow_call:
     inputs:
       folder:
         type: string
         description: Build app folder name
         required: true
-      app:
+      project:
         type: string
-        description: Build app name
+        description: Xcodeproj name
+        required: true
+      scheme:
+        type: string
+        description: App scheme name
         required: true
 env:
   DEVELOPER_DIR: /Applications/Xcode_15.2.app/Contents/Developer
@@ -44,6 +56,6 @@ jobs:
 
       - name: Build iOS
         run: |
-          xcodebuild clean build -project "${{ inputs.folder }}/${{ inputs.app }}.xcodeproj" -scheme "${{ inputs.app }}" | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build -project "${{ inputs.folder }}/${{ inputs.app }}.xcodeproj" -scheme "${{ inputs.scheme }}" | xcpretty && exit ${PIPESTATUS[0]}
         env:
           destination: ${{ matrix.iosDestination }}
