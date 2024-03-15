@@ -54,4 +54,4 @@ jobs:
 
       - name: Build iOS
         run: |
-          xcodebuild clean build -skipPackagePluginValidation -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" -scheme "${{ inputs.scheme }}" -destination ${{ matrix.iosDestination }} | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build -skipPackagePluginValidation -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" -scheme "${{ inputs.scheme }}" -destination "${{ matrix.iosDestination }}" | xcpretty && exit ${PIPESTATUS[0]}
