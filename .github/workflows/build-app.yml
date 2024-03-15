@@ -59,6 +59,4 @@ jobs:
 
       - name: Build iOS
         run: |
-          xcodebuild clean build -skipPackagePluginValidation -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" -scheme "${{ inputs.scheme }}" | xcpretty && exit ${PIPESTATUS[0]}
-        env:
-          destination: ${{ inputs.destination }}
+          xcodebuild clean build -skipPackagePluginValidation -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" -scheme "${{ inputs.scheme }}" -destination "${{ inputs.destination }}" | xcpretty && exit ${PIPESTATUS[0]}
