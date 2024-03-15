@@ -43,19 +43,17 @@ jobs:
           
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
-      - name: Set secret
-        run: git config --global url."https://${{ secrets.ACTIONS_TOKEN }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
-      
-      - name: Set pipefail
-        run: set -euo pipefail
-
-      - name: Set SwiftPM Plugin config
-        run: defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
+      - name: Setup SwiftPM Config
+        run: |
+          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
+          chmod 600 ~/.netrc
+          set -euo pipefail
+          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
 
       - name: Build iOS
         run: |
-          xcodebuild clean build -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" -scheme "${{ inputs.scheme }}" | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build -skipPackagePluginValidation -project "${{ inputs.folder }}/${{ inputs.project }}.xcodeproj" -scheme "${{ inputs.scheme }}" | xcpretty && exit ${PIPESTATUS[0]}
         env:
           destination: ${{ matrix.iosDestination }}
