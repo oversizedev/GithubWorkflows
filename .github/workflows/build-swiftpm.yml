@@ -28,7 +28,7 @@ jobs:
         
       - name: Setup SwiftPM Config
         run: |
-          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
+          echo "machine github.com login oversizedev password ${{ secrets.GITHUB_TOKEN }}" > ~/.netrc
           chmod 600 ~/.netrc
           set -euo pipefail
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
