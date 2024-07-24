@@ -23,6 +23,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
+      - name: Set environment variable
+        run: echo "PRODUCTION=true" >> $GITHUB_ENV
+        
       - name: Setup SwiftPM Config
         run: |
           echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
