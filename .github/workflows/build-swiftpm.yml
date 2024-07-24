@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
         
       - name: Set environment variable
-        run: echo "PRODUCTION=true" >> $GITHUB_ENV
+        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
         
       - name: Setup SwiftPM Config
         run: |

@@ -17,6 +17,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        
+      - name: Set environment variable
+        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
 
       - name: Select Xcode
         run: sudo xcode-select -switch /Applications/Xcode_15.4.app && /usr/bin/xcodebuild -version
