@@ -1,0 +1,67 @@
+name: Deploy static content to Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        type: string
+        description: Build package names
+        required: true
+  workflow_call:
+    inputs:
+      package:
+        type: string
+        description: Build package names
+        required: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+
+  deploy:
+    name: Deploy DocC
+    runs-on: macos-14
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Set environment variable
+        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
+        
+      - name: Setup SwiftPM Config
+        run: |
+          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
+          chmod 600 ~/.netrc
+          set -euo pipefail
+          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
+
+      - run: mkdir ./docs
+      - name: Generate DocC docs
+        run: |
+          swift --version
+          swift package \
+            --allow-writing-to-directory ./docs \
+            generate-documentation \
+            --target ${{ inputs.package }} \
+            --transform-for-static-hosting \
+            --hosting-base-path ${{ inputs.package }} \
+            --output-path ./docs
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './docs'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
