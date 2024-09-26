@@ -12,7 +12,7 @@ jobs:
 
   test:
     name: Tests
-    runs-on: macOS-14
+    runs-on: macOS-15
 
     steps:
       - name: Checkout
@@ -29,7 +29,7 @@ jobs:
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
 
       - name: Select Xcode
-        run: sudo xcode-select -switch /Applications/Xcode_15.4.app && /usr/bin/xcodebuild -version
+        run: sudo xcode-select -switch /Applications/Xcode_16.0.app && /usr/bin/xcodebuild -version
         
       - name: Run macOS tests
         run: swift test -v
