@@ -7,12 +7,23 @@ on:
         type: string
         description: Build package names
         required: true
+      destination:
+        type: string
+        description: Destination for build (e.g., platform=iOS Simulator,name=iPhone 16,OS=18.0)
+        default: platform=iOS Simulator,name=iPhone 16,OS=18.0
+        required: false
+        
   workflow_call:
     inputs:
       package:
         type: string
         description: Build package names
         required: true
+      destination:
+        type: string
+        description: Destination for build (e.g., platform=iOS Simulator,name=iPhone 16,OS=18.0)
+        default: platform=iOS Simulator,name=iPhone 16,OS=18.0
+        required: false
 
 jobs:
   swiftpm:
@@ -35,4 +46,4 @@ jobs:
 
       - name: Build Package
         run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.0' | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination '${{ inputs.destination }}' | xcpretty && exit ${PIPESTATUS[0]}
