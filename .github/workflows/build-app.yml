@@ -30,7 +30,7 @@ on:
         description: Device name
         required: true
 env:
-  DEVELOPER_DIR: /Applications/Xcode_16.0.app/Contents/Developer
+  DEVELOPER_DIR: /Applications/Xcode_16.1.app/Contents/Developer
 
 jobs:
 

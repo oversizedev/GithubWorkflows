@@ -9,8 +9,8 @@ on:
         required: true
       destination:
         type: string
-        description: Destination for build (e.g., platform=iOS Simulator,name=iPhone 16,OS=18.0)
-        default: platform=iOS Simulator,name=iPhone 16,OS=18.0
+        description: Destination for build (e.g., platform=iOS Simulator,name=iPhone 16,OS=18.1)
+        default: platform=iOS Simulator,name=iPhone 16,OS=18.1
         required: false
         
   workflow_call:
@@ -21,8 +21,8 @@ on:
         required: true
       destination:
         type: string
-        description: Destination for build (e.g., platform=iOS Simulator,name=iPhone 16,OS=18.0)
-        default: platform=iOS Simulator,name=iPhone 16,OS=18.0
+        description: Destination for build (e.g., platform=iOS Simulator,name=iPhone 16,OS=18.1)
+        default: platform=iOS Simulator,name=iPhone 16,OS=18.1
         required: false
 
 jobs:
