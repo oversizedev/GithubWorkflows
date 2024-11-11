@@ -6,7 +6,7 @@ on:
       package:
         description: 'Package to build'
         required: false
-        default: 'All'  # Default option to build all platforms
+        default: 'All'
         options:
           - All
           - iOS
