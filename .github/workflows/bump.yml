@@ -9,7 +9,6 @@ jobs:
     name: Create tag
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    secrets: inherit
     steps:
     - uses: actions/checkout@v4
       with:
