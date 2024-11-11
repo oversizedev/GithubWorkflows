@@ -22,6 +22,13 @@ jobs:
   build-iOS:
     name: Build backage
     runs-on: macOS-15
+    strategy:
+      matrix:
+        destination:
+          - platform=iOS Simulator,name=iPhone 16,OS=18.1
+          - platform=macOS,arch=arm64
+          - platform=watchOS Simulator,name=Apple Watch SE (40mm) (2nd generation),OS=11.1
+          - platform=tvOS Simulator,name=Apple TV 4K (3rd generation) (at 1080p),OS=18.1
 
     steps:
       - name: Checkout
@@ -37,18 +44,6 @@ jobs:
           set -euo pipefail
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
 
-      - name: Build iOS Package
+      - name: Build
         run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' | xcpretty && exit ${PIPESTATUS[0]}
-          
-      - name: Build macOS Package
-        run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=macOS,arch=arm64' | xcpretty && exit ${PIPESTATUS[0]}
-          
-      - name: Build watchOS Package
-        run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=watchOS Simulator,name=Apple Watch SE (40mm) (2nd generation),OS=11.1' | xcpretty && exit ${PIPESTATUS[0]}
-          
-      - name: Build tvOS Package
-        run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation) (at 1080p),OS=18.1' | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination '${{ matrix.destination }}' | xcpretty && exit ${PIPESTATUS[0]}
