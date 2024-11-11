@@ -20,7 +20,7 @@ env:
 
 jobs:
   build-iOS:
-    name: Build iOS
+    name: Build backage
     runs-on: macOS-15
 
     steps:
@@ -37,72 +37,18 @@ jobs:
           set -euo pipefail
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
 
-      - name: Build Package
+      - name: Build iOS Package
         run: |
           xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' | xcpretty && exit ${PIPESTATUS[0]}
-
-  build-macOS:
-    name: Build macOS
-    runs-on: macOS-15
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Set environment variable
-        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
-        
-      - name: Setup SwiftPM Config
-        run: |
-          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
-          chmod 600 ~/.netrc
-          set -euo pipefail
-          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
-
-      - name: Build Package
+          
+      - name: Build macOS Package
         run: |
           xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=macOS,arch=arm64' | xcpretty && exit ${PIPESTATUS[0]}
-
-  build-watchOS:
-    name: Build watchOS
-    runs-on: macOS-15
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Set environment variable
-        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
-        
-      - name: Setup SwiftPM Config
-        run: |
-          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
-          chmod 600 ~/.netrc
-          set -euo pipefail
-          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
-
-      - name: Build Package
+          
+      - name: Build watchOS Package
         run: |
           xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=watchOS Simulator,name=Apple Watch SE (40mm) (2nd generation),OS=11.1' | xcpretty && exit ${PIPESTATUS[0]}
-
-  build-tvOS:
-    name: Build tvOS
-    runs-on: macOS-15
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Set environment variable
-        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
-        
-      - name: Setup SwiftPM Config
-        run: |
-          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
-          chmod 600 ~/.netrc
-          set -euo pipefail
-          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
-
-      - name: Build Package
+          
+      - name: Build tvOS Package
         run: |
           xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation) (at 1080p),OS=18.1' | xcpretty && exit ${PIPESTATUS[0]}
