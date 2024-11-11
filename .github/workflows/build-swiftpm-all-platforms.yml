@@ -6,22 +6,22 @@ on:
       package:
         description: 'Package to build'
         required: true
-        default: 'All'  # Default option to build all platforms
+        default: 'All'
         options:
           - All
           - iOS
           - macOS
           - watchOS
           - tvOS
-
+          
 env:
   DEVELOPER_DIR: /Applications/Xcode_16.1.app/Contents/Developer
 
 jobs:
-  build-ios:
-    name: Build iOS
-    if: ${{ github.event.inputs.package == 'iOS' || github.event.inputs.package == 'All' }}
+  build-packages:
+    name: Build Packages
     runs-on: macOS-15
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,72 +36,25 @@ jobs:
           set -euo pipefail
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
 
-      - name: Build Package
+      - name: Build iOS Package
+        if: ${{ github.event.inputs.package == 'iOS' || github.event.inputs.package == 'All' }}
         run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme iOSScheme -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build -skipPackagePluginValidation -scheme iOSScheme -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' | xcpretty &
 
-  build-macos:
-    name: Build macOS
-    if: ${{ github.event.inputs.package == 'macOS' || github.event.inputs.package == 'All' }}
-    runs-on: macOS-15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set environment variable
-        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
-
-      - name: Setup SwiftPM Config
+      - name: Build macOS Package
+        if: ${{ github.event.inputs.package == 'macOS' || github.event.inputs.package == 'All' }}
         run: |
-          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
-          chmod 600 ~/.netrc
-          set -euo pipefail
-          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
+          xcodebuild clean build -skipPackagePluginValidation -scheme macOSScheme -destination 'platform=macOS,arch=arm64' | xcpretty &
 
-      - name: Build Package
+      - name: Build watchOS Package
+        if: ${{ github.event.inputs.package == 'watchOS' || github.event.inputs.package == 'All' }}
         run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme macOSScheme -destination 'platform=macOS,arch=arm64' | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build -skipPackagePluginValidation -scheme watchOSScheme -destination 'platform=watchOS Simulator,name=Apple Watch SE (40mm) (2nd generation),OS=11.1' | xcpretty &
 
-  build-watchos:
-    name: Build watchOS
-    if: ${{ github.event.inputs.package == 'watchOS' || github.event.inputs.package == 'All' }}
-    runs-on: macOS-15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set environment variable
-        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
-
-      - name: Setup SwiftPM Config
+      - name: Build tvOS Package
+        if: ${{ github.event.inputs.package == 'tvOS' || github.event.inputs.package == 'All' }}
         run: |
-          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
-          chmod 600 ~/.netrc
-          set -euo pipefail
-          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
+          xcodebuild clean build -skipPackagePluginValidation -scheme tvOSScheme -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation) (at 1080p),OS=18.1' | xcpretty &
 
-      - name: Build Package
-        run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme watchOSScheme -destination 'platform=watchOS Simulator,name=Apple Watch SE (40mm) (2nd generation),OS=11.1' | xcpretty && exit ${PIPESTATUS[0]}
-
-  build-tvos:
-    name: Build tvOS
-    if: ${{ github.event.inputs.package == 'tvOS' || github.event.inputs.package == 'All' }}
-    runs-on: macOS-15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set environment variable
-        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
-
-      - name: Setup SwiftPM Config
-        run: |
-          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
-          chmod 600 ~/.netrc
-          set -euo pipefail
-          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
-
-      - name: Build Package
-        run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme tvOSScheme -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation) (at 1080p),OS=18.1' | xcpretty && exit ${PIPESTATUS[0]}
+      - name: Wait for All Builds
+        run: wait
