@@ -21,6 +21,7 @@ on:
         type: string
         description: App scheme name
         required: true
+        
 env:
   DEVELOPER_DIR: /Applications/Xcode_16.1.app/Contents/Developer
 
