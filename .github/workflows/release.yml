@@ -6,10 +6,11 @@ on:
       
 jobs:
   release:
+    name: Create Release
     runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
