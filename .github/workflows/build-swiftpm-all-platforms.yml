@@ -37,14 +37,29 @@ jobs:
           set -euo pipefail
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
 
-      - name: Cache SwiftPM Dependencies
+      - name: Cache SwiftPM dependencies
         uses: actions/cache@v3
         with:
           path: |
-            ~/.swiftpm
+            ~/.build
             .build
-          key: swiftpm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
-          restore-keys: swiftpm-${{ runner.os }}-
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Cache Xcode build
+        uses: actions/cache@v3
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-xcode-${{ hashFiles('**/*.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-xcode-
+
+      - name: Cache netrc
+        uses: actions/cache@v3
+        with:
+          path: ~/.netrc
+          key: ${{ runner.os }}-netrc-${{ hashFiles('**/Package.resolved') }}
 
       - name: Build iOS Package
         run: |
