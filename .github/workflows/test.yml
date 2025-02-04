@@ -21,6 +21,22 @@ jobs:
       - name: Set environment variable
         run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
 
+      - name: Cache SwiftPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.build
+            .build
+          key: ${{ runner.os }}-spm-test-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-test-
+
+      - name: Cache netrc
+        uses: actions/cache@v3
+        with:
+          path: ~/.netrc
+          key: ${{ runner.os }}-netrc-test-${{ hashFiles('**/Package.resolved') }}
+
       - name: Setup SwiftPM Config
         run: |
           echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
