@@ -19,10 +19,9 @@ env:
   DEVELOPER_DIR: /Applications/Xcode_16.1.app/Contents/Developer
 
 jobs:
-  build-iOS:
-    name: Build backage
+  build-ios:
+    name: Build iOS
     runs-on: macOS-15
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,36 +42,167 @@ jobs:
           path: |
             ~/.build
             .build
-          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          key: ${{ runner.os }}-spm-ios-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-spm-
+            ${{ runner.os }}-spm-ios-
 
       - name: Cache Xcode build
         uses: actions/cache@v3
         with:
           path: ~/Library/Developer/Xcode/DerivedData
-          key: ${{ runner.os }}-xcode-${{ hashFiles('**/*.xcodeproj/project.pbxproj') }}
+          key: ${{ runner.os }}-xcode-ios-${{ hashFiles('**/*.xcodeproj/project.pbxproj') }}
           restore-keys: |
-            ${{ runner.os }}-xcode-
+            ${{ runner.os }}-xcode-ios-
 
       - name: Cache netrc
         uses: actions/cache@v3
         with:
           path: ~/.netrc
-          key: ${{ runner.os }}-netrc-${{ hashFiles('**/Package.resolved') }}
+          key: ${{ runner.os }}-netrc-ios-${{ hashFiles('**/Package.resolved') }}
 
       - name: Build iOS Package
         run: |
           xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' | xcpretty && exit ${PIPESTATUS[0]}
-          
+
+  build-macos:
+    name: Build macOS
+    runs-on: macOS-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Set environment variable
+        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
+        
+      - name: Setup SwiftPM Config
+        run: |
+          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
+          chmod 600 ~/.netrc
+          set -euo pipefail
+          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
+
+      - name: Cache SwiftPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.build
+            .build
+          key: ${{ runner.os }}-spm-macos-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-macos-
+
+      - name: Cache Xcode build
+        uses: actions/cache@v3
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-xcode-macos-${{ hashFiles('**/*.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-xcode-macos-
+
+      - name: Cache netrc
+        uses: actions/cache@v3
+        with:
+          path: ~/.netrc
+          key: ${{ runner.os }}-netrc-macos-${{ hashFiles('**/Package.resolved') }}
+
       - name: Build macOS Package
         run: |
           xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=macOS,arch=arm64' | xcpretty && exit ${PIPESTATUS[0]}
-          
+
+  build-watchos:
+    name: Build watchOS
+    runs-on: macOS-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Set environment variable
+        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
+        
+      - name: Setup SwiftPM Config
+        run: |
+          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
+          chmod 600 ~/.netrc
+          set -euo pipefail
+          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
+
+      - name: Cache SwiftPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.build
+            .build
+          key: ${{ runner.os }}-spm-watchos-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-watchos-
+
+      - name: Cache Xcode build
+        uses: actions/cache@v3
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-xcode-watchos-${{ hashFiles('**/*.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-xcode-watchos-
+
+      - name: Cache netrc
+        uses: actions/cache@v3
+        with:
+          path: ~/.netrc
+          key: ${{ runner.os }}-netrc-watchos-${{ hashFiles('**/Package.resolved') }}
+
       - name: Build watchOS Package
         run: |
           xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=watchOS Simulator,name=Apple Watch SE (40mm) (2nd generation),OS=11.1' | xcpretty && exit ${PIPESTATUS[0]}
-          
+
+  build-tvos:
+    name: Build tvOS
+    runs-on: macOS-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Set environment variable
+        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
+        
+      - name: Setup SwiftPM Config
+        run: |
+          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
+          chmod 600 ~/.netrc
+          set -euo pipefail
+          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
+
+      - name: Cache SwiftPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.build
+            .build
+          key: ${{ runner.os }}-spm-tvos-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-tvos-
+
+      - name: Cache Xcode build
+        uses: actions/cache@v3
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-xcode-tvos-${{ hashFiles('**/*.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-xcode-tvos-
+
+      - name: Cache netrc
+        uses: actions/cache@v3
+        with:
+          path: ~/.netrc
+          key: ${{ runner.os }}-netrc-tvos-${{ hashFiles('**/Package.resolved') }}
+
       - name: Build tvOS Package
         run: |
           xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation) (at 1080p),OS=18.1' | xcpretty && exit ${PIPESTATUS[0]}
+
+  build-summary:
+    name: Build Summary
+    needs: [build-ios, build-macos, build-watchos, build-tvos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
+        run: echo "All platforms built successfully!"
