@@ -7,6 +7,11 @@ on:
         type: string
         description: Build package names
         required: true
+      clean_cache:
+        type: boolean
+        description: Clean cache before building
+        required: false
+        default: false
         
   workflow_call:
     inputs:
@@ -14,13 +19,18 @@ on:
         type: string
         description: Build package names
         required: true
+      clean_cache:
+        type: boolean
+        description: Clean cache before building
+        required: false
+        default: false
         
 env:
   DEVELOPER_DIR: /Applications/Xcode_16.1.app/Contents/Developer
 
 jobs:
   build-iOS:
-    name: Build backage
+    name: Build Package
     runs-on: macOS-15
 
     steps:
@@ -29,6 +39,13 @@ jobs:
         
       - name: Set environment variable
         run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
+
+      - name: Clean cache if needed
+        if: ${{ inputs.clean_cache }}
+        run: |
+          rm -rf ~/.build
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+          rm -rf ~/.netrc
         
       - name: Setup SwiftPM Config
         run: |
