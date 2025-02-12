@@ -7,11 +7,6 @@ on:
         type: string
         description: Build package names
         required: true
-      clean_cache:
-        type: boolean
-        description: Clean cache before building
-        required: false
-        default: false
         
   workflow_call:
     inputs:
@@ -19,18 +14,13 @@ on:
         type: string
         description: Build package names
         required: true
-      clean_cache:
-        type: boolean
-        description: Clean cache before building
-        required: false
-        default: false
         
 env:
   DEVELOPER_DIR: /Applications/Xcode_16.1.app/Contents/Developer
 
 jobs:
   build-iOS:
-    name: Build Package
+    name: Build backage
     runs-on: macOS-15
 
     steps:
@@ -39,13 +29,6 @@ jobs:
         
       - name: Set environment variable
         run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
-
-      - name: Clean cache if needed
-        if: ${{ inputs.clean_cache }}
-        run: |
-          rm -rf ~/.build
-          rm -rf ~/Library/Developer/Xcode/DerivedData
-          rm -rf ~/.netrc
         
       - name: Setup SwiftPM Config
         run: |
@@ -53,30 +36,6 @@ jobs:
           chmod 600 ~/.netrc
           set -euo pipefail
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
-
-      - name: Cache SwiftPM dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.build
-            .build
-          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-spm-
-
-      - name: Cache Xcode build
-        uses: actions/cache@v3
-        with:
-          path: ~/Library/Developer/Xcode/DerivedData
-          key: ${{ runner.os }}-xcode-${{ hashFiles('**/*.xcodeproj/project.pbxproj') }}
-          restore-keys: |
-            ${{ runner.os }}-xcode-
-
-      - name: Cache netrc
-        uses: actions/cache@v3
-        with:
-          path: ~/.netrc
-          key: ${{ runner.os }}-netrc-${{ hashFiles('**/Package.resolved') }}
 
       - name: Build iOS Package
         run: |

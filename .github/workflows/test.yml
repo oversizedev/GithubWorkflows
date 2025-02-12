@@ -2,19 +2,7 @@ name: Tests
 
 on:
   workflow_dispatch:
-    inputs:
-      clean_cache:
-        type: boolean
-        description: Clean cache before building
-        required: false
-        default: false
   workflow_call:
-    inputs:
-      clean_cache:
-        type: boolean
-        description: Clean cache before building
-        required: false
-        default: false
   
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -32,28 +20,6 @@ jobs:
         
       - name: Set environment variable
         run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
-
-      - name: Clean cache if needed
-        if: ${{ inputs.clean_cache }}
-        run: |
-          rm -rf ~/.build
-          rm -rf ~/.netrc
-
-      - name: Cache SwiftPM dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.build
-            .build
-          key: ${{ runner.os }}-spm-test-${{ hashFiles('**/Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-spm-test-
-
-      - name: Cache netrc
-        uses: actions/cache@v3
-        with:
-          path: ~/.netrc
-          key: ${{ runner.os }}-netrc-test-${{ hashFiles('**/Package.resolved') }}
 
       - name: Setup SwiftPM Config
         run: |
