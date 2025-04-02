@@ -1,0 +1,48 @@
+name: Swift Format
+
+on:
+  workflow_dispatch:
+  workflow_call:
+      
+jobs:
+  release:
+    name: Swift Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6"
+
+      - name: Install SwiftFormat
+        run: |
+          # Install SwiftFormat using Swift Package Manager directly without cloning
+          git clone --depth=1 https://github.com/nicklockwood/SwiftFormat SwiftFormatTool
+          cd SwiftFormatTool
+          swift build -c release
+          sudo cp .build/release/swiftformat /usr/local/bin/swiftformat
+          cd ..
+          rm -rf SwiftFormatTool
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run SwiftFormat and commit changes
+        run: |
+          swiftformat .
+          git add .
+          if ! git diff-index --quiet HEAD; then
+            formatted_date=$(date -u +"%Y-%m-%d %H:%M:%S")
+            git commit -m "Apply SwiftFormat changes by ${{ github.actor }} [skip ci]"
+            git push
+            echo "Formatting changes committed and pushed"
+          else
+            echo "No formatting changes needed"
+          fi
