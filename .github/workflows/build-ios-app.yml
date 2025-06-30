@@ -28,7 +28,7 @@ env:
 jobs:
   example:
     name: Run examples
-    runs-on: macOS-14
+    runs-on: macOS-15
     strategy:
         matrix:
           destination: ['platform=iOS Simulator,name=iPhone 16 Pro,OS=18.1', 'platform=iOS Simulator,name=iPad Pro (12.9-inch) (6th generation),OS=18.1']
