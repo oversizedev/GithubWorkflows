@@ -39,7 +39,7 @@ jobs:
 
       - name: Build iOS Package
         run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.2' | xcpretty && exit ${PIPESTATUS[0]}
           
       - name: Build macOS Package
         run: |
@@ -47,8 +47,8 @@ jobs:
           
       - name: Build watchOS Package
         run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=watchOS Simulator,name=Apple Watch SE (40mm) (2nd generation),OS=11.1' | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=watchOS Simulator,name=Apple Watch SE 3 (40mm),OS=26.2' | xcpretty && exit ${PIPESTATUS[0]}
           
       - name: Build tvOS Package
         run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation) (at 1080p),OS=18.1' | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation) (at 1080p),OS=26.2' | xcpretty && exit ${PIPESTATUS[0]}
