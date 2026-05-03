@@ -40,7 +40,7 @@ jobs:
           git add .
           if ! git diff-index --quiet HEAD; then
             formatted_date=$(date -u +"%Y-%m-%d %H:%M:%S")
-            git commit -m "Apply SwiftFormat changes by ${{ github.actor }} [skip ci]"
+            git commit -m "Apply SwiftFormat changes by ${{ github.actor }}"
             git push
             echo "Formatting changes committed and pushed"
           else
