@@ -12,12 +12,12 @@ jobs:
 
   test:
     name: Tests
-    runs-on: macOS-26
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Set environment variable
         run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
 
@@ -28,8 +28,5 @@ jobs:
           set -euo pipefail
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
 
-      - name: Select Xcode
-        run: sudo xcode-select -switch /Applications/Xcode_26.2.app && /usr/bin/xcodebuild -version
-        
       - name: Run macOS tests
         run: swift test -v
