@@ -7,7 +7,7 @@ on:
 jobs:
   release:
     name: Swift Format
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.repository.private && fromJSON('["self-hosted","Linux","X64"]') || 'ubuntu-latest' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -25,14 +25,16 @@ jobs:
           git clone --depth=1 https://github.com/nicklockwood/SwiftFormat SwiftFormatTool
           cd SwiftFormatTool
           swift build -c release
-          sudo cp .build/release/swiftformat /usr/local/bin/swiftformat
+          mkdir -p "$RUNNER_TEMP/bin"
+          cp .build/release/swiftformat "$RUNNER_TEMP/bin/swiftformat"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           cd ..
           rm -rf SwiftFormatTool
 
       - name: Configure Git
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Run SwiftFormat and commit changes
         run: |
