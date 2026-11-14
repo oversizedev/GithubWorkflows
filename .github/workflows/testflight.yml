@@ -213,6 +213,7 @@ jobs:
             -destination "generic/platform=$PLATFORM" \
             -archivePath "$ARCHIVE_PATH" \
             -derivedDataPath "$DERIVED_DATA" \
+            -scmProvider system \
             -skipPackagePluginValidation \
             -skipMacroValidation \
             -allowProvisioningUpdates \

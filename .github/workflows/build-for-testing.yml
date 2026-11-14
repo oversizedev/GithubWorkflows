@@ -99,6 +99,7 @@ jobs:
             -scheme "${{ inputs.scheme }}" \
             -destination "$destination" \
             -derivedDataPath "$DERIVED_DATA" \
+            -scmProvider system \
             -skipPackagePluginValidation \
             -skipMacroValidation
 

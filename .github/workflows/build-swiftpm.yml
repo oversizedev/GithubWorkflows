@@ -65,5 +65,6 @@ jobs:
             -scheme "${{ inputs.package }}" \
             -destination "${{ inputs.destination }}" \
             -derivedDataPath build/DerivedData \
+            -scmProvider system \
             -skipPackagePluginValidation \
             -skipMacroValidation

@@ -74,4 +74,5 @@ runs:
         xcodebuild -resolvePackageDependencies \
           "${{ steps.container.outputs.flag }}" "${{ steps.container.outputs.path }}" \
           -scheme "${{ inputs.scheme }}" \
-          -derivedDataPath "${{ inputs.derived-data }}"
+          -derivedDataPath "${{ inputs.derived-data }}" \
+          -scmProvider system

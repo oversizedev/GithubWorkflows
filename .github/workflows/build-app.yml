@@ -95,6 +95,7 @@ jobs:
             ${CONFIGURATION:+-configuration "$CONFIGURATION"} \
             -destination "${{ inputs.destination }}" \
             -derivedDataPath "$DERIVED_DATA" \
+            -scmProvider system \
             -skipPackagePluginValidation \
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO
