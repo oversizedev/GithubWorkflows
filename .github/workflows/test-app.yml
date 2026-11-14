@@ -1,0 +1,120 @@
+name: Test App
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        type: string
+        description: Job display name
+        required: false
+        default: Tests
+      artifact:
+        type: string
+        description: Test products artifact from build-for-testing.yml
+        required: true
+      only-testing:
+        type: string
+        description: Space-separated test identifiers to run (Target, Target/Class)
+        required: false
+        default: ""
+      skip-testing:
+        type: string
+        description: Space-separated test identifiers to skip
+        required: false
+        default: ""
+      platform:
+        type: string
+        description: Simulator platform
+        required: false
+        default: iOS
+      device-type:
+        type: string
+        description: Simulator device name prefix
+        required: false
+        default: iPhone
+      destination:
+        type: string
+        description: Explicit destination; empty picks the newest available simulator
+        required: false
+        default: ""
+      runs-on:
+        type: string
+        description: Runner as JSON; empty picks self-hosted macOS for private repositories and xcode-27 for public ones
+        required: false
+        default: ""
+      xcode-version:
+        type: string
+        description: Xcode version on GitHub-hosted runners, must match build-for-testing
+        required: false
+        default: latest-stable
+      timeout-minutes:
+        type: number
+        required: false
+        default: 40
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ inputs.name }}
+    runs-on: ${{ inputs.runs-on != '' && fromJSON(inputs.runs-on) || github.event.repository.private && fromJSON('["self-hosted","macOS","ARM64","xcode"]') || 'xcode-27' }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    env:
+      NSUnbufferedIO: "YES"
+      PRODUCTS_DIR: ${{ github.workspace }}/build/Products
+      RESULT_BUNDLE: ${{ github.workspace }}/build/TestResults.xcresult
+    steps:
+      - name: Set up Xcode toolchain
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-setup@main
+        with:
+          xcode-version: ${{ inputs.xcode-version }}
+
+      - name: Download test products
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.artifact }}
+          path: ${{ runner.temp }}
+
+      - name: Unpack test products
+        run: |
+          rm -rf "$PRODUCTS_DIR"
+          mkdir -p "$(dirname "$PRODUCTS_DIR")"
+          tar -xzf "$RUNNER_TEMP/test-products.tar.gz" -C "$(dirname "$PRODUCTS_DIR")"
+
+      - name: Select simulator
+        id: simulator
+        uses: oversizedev/GithubWorkflows/.github/actions/simulator-destination@main
+        with:
+          platform: ${{ inputs.platform }}
+          device-type: ${{ inputs.device-type }}
+          destination: ${{ inputs.destination }}
+
+      - name: Run tests
+        env:
+          ONLY_TESTING: ${{ inputs.only-testing }}
+          SKIP_TESTING: ${{ inputs.skip-testing }}
+        run: |
+          set -euo pipefail
+          xctestrun=$(find "$PRODUCTS_DIR" -maxdepth 1 -name '*.xctestrun' | head -n 1)
+          if [ -z "$xctestrun" ]; then
+            echo "::error::No .xctestrun found in test products"
+            exit 1
+          fi
+          filters=()
+          for identifier in $ONLY_TESTING; do filters+=("-only-testing:$identifier"); done
+          for identifier in $SKIP_TESTING; do filters+=("-skip-testing:$identifier"); done
+          xcodebuild test-without-building \
+            -xctestrun "$xctestrun" \
+            -destination "${{ steps.simulator.outputs.destination }}" \
+            -resultBundlePath "$RESULT_BUNDLE" \
+            ${filters[@]+"${filters[@]}"}
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact }}-${{ inputs.name }}-results
+          path: build/TestResults.xcresult
+          if-no-files-found: ignore
+          retention-days: 7

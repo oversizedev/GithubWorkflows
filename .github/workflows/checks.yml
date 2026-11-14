@@ -1,0 +1,86 @@
+name: Checks
+
+on:
+  workflow_call:
+    inputs:
+      swiftformat:
+        type: boolean
+        description: Run swiftformat --lint
+        required: false
+        default: true
+      swiftlint:
+        type: boolean
+        description: Run swiftlint --strict
+        required: false
+        default: false
+      node-version:
+        type: string
+        description: Node.js version to install before commands; empty skips
+        required: false
+        default: ""
+      commands:
+        type: string
+        description: Extra shell commands (for example make arch-check)
+        required: false
+        default: ""
+      runs-on:
+        type: string
+        description: Runner as JSON; empty picks self-hosted macOS for private repositories and xcode-27 for public ones
+        required: false
+        default: ""
+      timeout-minutes:
+        type: number
+        description: Job timeout
+        required: false
+        default: 15
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ${{ inputs.runs-on != '' && fromJSON(inputs.runs-on) || github.event.repository.private && fromJSON('["self-hosted","macOS","ARM64","xcode"]') || 'xcode-27' }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Add Homebrew to PATH
+        run: |
+          for prefix in /opt/homebrew /usr/local; do
+            if [ -x "$prefix/bin/brew" ]; then
+              echo "$prefix/bin" >> "$GITHUB_PATH"
+              break
+            fi
+          done
+
+      - name: Install SwiftFormat
+        if: inputs.swiftformat
+        run: command -v swiftformat >/dev/null || brew install swiftformat
+
+      - name: Check formatting
+        if: inputs.swiftformat
+        run: |
+          swiftformat --version
+          swiftformat --lint .
+
+      - name: Install SwiftLint
+        if: inputs.swiftlint
+        run: command -v swiftlint >/dev/null || brew install swiftlint
+
+      - name: Lint
+        if: inputs.swiftlint
+        run: |
+          swiftlint version
+          swiftlint lint --strict --reporter github-actions-logging
+
+      - name: Set up Node.js
+        if: inputs.node-version != ''
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Run checks
+        if: inputs.commands != ''
+        run: ${{ inputs.commands }}

@@ -1,0 +1,77 @@
+name: Prepare Xcode project
+description: Generate the project, restore the SwiftPM cache and resolve package dependencies
+
+inputs:
+  path:
+    description: Xcode project path without the .xcodeproj extension
+    required: false
+    default: ""
+  workspace:
+    description: Xcode workspace path without the .xcworkspace extension; takes precedence over path
+    required: false
+    default: ""
+  scheme:
+    description: Scheme used to resolve packages
+    required: true
+  derived-data:
+    description: DerivedData path
+    required: true
+  pre-build:
+    description: Shell command that generates the project (for example xcodegen)
+    required: false
+    default: ""
+
+outputs:
+  container-flag:
+    description: -project or -workspace
+    value: ${{ steps.container.outputs.flag }}
+  container-path:
+    description: Path to the .xcodeproj or .xcworkspace
+    value: ${{ steps.container.outputs.path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Generate project
+      if: inputs.pre-build != ''
+      shell: bash
+      run: ${{ inputs.pre-build }}
+
+    - name: Locate project
+      id: container
+      shell: bash
+      env:
+        PROJECT_PATH: ${{ inputs.path }}
+        WORKSPACE_PATH: ${{ inputs.workspace }}
+      run: |
+        set -euo pipefail
+        if [ -n "$WORKSPACE_PATH" ]; then
+          flag="-workspace"; path="$WORKSPACE_PATH.xcworkspace"
+        elif [ -n "$PROJECT_PATH" ]; then
+          flag="-project"; path="$PROJECT_PATH.xcodeproj"
+        else
+          echo "::error::Set path or workspace"
+          exit 1
+        fi
+        if [ ! -e "$path" ]; then
+          echo "::error::$path not found"
+          exit 1
+        fi
+        echo "flag=$flag" >> "$GITHUB_OUTPUT"
+        echo "path=$path" >> "$GITHUB_OUTPUT"
+
+    - name: Restore SwiftPM cache
+      if: runner.environment == 'github-hosted'
+      uses: actions/cache@v4
+      with:
+        path: ${{ inputs.derived-data }}/SourcePackages
+        key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved', '**/Package.swift') }}
+        restore-keys: spm-${{ runner.os }}-
+
+    - name: Resolve packages
+      shell: bash
+      run: |
+        xcodebuild -resolvePackageDependencies \
+          "${{ steps.container.outputs.flag }}" "${{ steps.container.outputs.path }}" \
+          -scheme "${{ inputs.scheme }}" \
+          -derivedDataPath "${{ inputs.derived-data }}"
