@@ -47,6 +47,11 @@ on:
         description: Xcode version on GitHub-hosted runners, must match build-for-testing
         required: false
         default: latest-stable
+      test-timeout-seconds:
+        type: number
+        description: Maximum execution time of a single test before xcodebuild fails it
+        required: false
+        default: 120
       timeout-minutes:
         type: number
         required: false
@@ -94,6 +99,7 @@ jobs:
         env:
           ONLY_TESTING: ${{ inputs.only-testing }}
           SKIP_TESTING: ${{ inputs.skip-testing }}
+          TEST_TIMEOUT: ${{ inputs.test-timeout-seconds }}
         run: |
           set -euo pipefail
           xctestrun=$(find "$PRODUCTS_DIR" -maxdepth 1 -name '*.xctestrun' | head -n 1)
@@ -109,7 +115,18 @@ jobs:
             -xctestrun "$xctestrun" \
             -destination "${{ steps.simulator.outputs.destination }}" \
             -resultBundlePath "$RESULT_BUNDLE" \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance "$TEST_TIMEOUT" \
+            -maximum-test-execution-time-allowance "$TEST_TIMEOUT" \
             ${filters[@]+"${filters[@]}"}
+
+      - name: Delete simulator
+        if: always() && steps.simulator.outputs.udid != ''
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
+          xcrun simctl delete "$UDID"
 
       - name: Upload test results
         if: failure()
