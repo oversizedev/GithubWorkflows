@@ -248,7 +248,7 @@ jobs:
         if: ${{ !inputs.upload }}
         uses: actions/upload-artifact@v7
         with:
-          name: package-${{ steps.build-number.outputs.value }}
+          name: package-${{ inputs.scheme }}-${{ inputs.platform }}-${{ steps.build-number.outputs.value }}
           path: build/Export
           retention-days: 7
 
@@ -256,7 +256,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: dsyms-${{ steps.build-number.outputs.value }}
+          name: dsyms-${{ inputs.scheme }}-${{ inputs.platform }}-${{ steps.build-number.outputs.value }}
           path: build/App.xcarchive/dSYMs
           if-no-files-found: ignore
           retention-days: 30
