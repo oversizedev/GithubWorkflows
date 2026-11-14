@@ -1,0 +1,71 @@
+name: Set up Xcode toolchain
+description: Select Xcode, put Homebrew and XcodeGen on PATH, skip plugin fingerprint checks and grant access to private Oversize packages
+
+inputs:
+  actions-token:
+    description: Token with read access to private oversizedev repositories
+    required: false
+    default: ""
+  xcode-version:
+    description: Xcode version for GitHub-hosted runners (latest-stable, latest, or a version like 27.0)
+    required: false
+    default: latest-stable
+  private-owner:
+    description: GitHub owner whose private repositories the token unlocks
+    required: false
+    default: oversizedev
+  xcodegen:
+    description: Install XcodeGen when it is missing
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Select Xcode
+      if: runner.environment == 'github-hosted'
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: ${{ inputs.xcode-version }}
+
+    - name: Add Homebrew to PATH
+      shell: bash
+      run: |
+        for prefix in /opt/homebrew /usr/local; do
+          if [ -x "$prefix/bin/brew" ]; then
+            echo "$prefix/bin" >> "$GITHUB_PATH"
+            break
+          fi
+        done
+
+    - name: Install XcodeGen
+      if: inputs.xcodegen == 'true'
+      shell: bash
+      run: command -v xcodegen >/dev/null || brew install xcodegen
+
+    - name: Skip package plugin and macro fingerprint validation
+      shell: bash
+      run: |
+        defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
+        defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
+
+    - name: Allow access to private packages
+      if: inputs.actions-token != ''
+      shell: bash
+      env:
+        ACTIONS_TOKEN: ${{ inputs.actions-token }}
+        PRIVATE_OWNER: ${{ inputs.private-owner }}
+      run: |
+        {
+          echo "GIT_CONFIG_COUNT=1"
+          echo "GIT_CONFIG_KEY_0=url.https://x-access-token:${ACTIONS_TOKEN}@github.com/${PRIVATE_OWNER}/.insteadOf"
+          echo "GIT_CONFIG_VALUE_0=https://github.com/${PRIVATE_OWNER}/"
+          echo "GIT_TERMINAL_PROMPT=0"
+        } >> "$GITHUB_ENV"
+
+    - name: Show toolchain
+      shell: bash
+      run: |
+        xcodebuild -version
+        swift --version
+        if command -v xcodegen >/dev/null; then echo "XcodeGen $(xcodegen --version)"; fi

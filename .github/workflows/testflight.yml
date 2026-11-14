@@ -1,0 +1,266 @@
+name: TestFlight
+
+on:
+  workflow_call:
+    inputs:
+      path:
+        type: string
+        description: Xcode project path without the .xcodeproj extension
+        required: false
+        default: ""
+      workspace:
+        type: string
+        description: Xcode workspace path without the .xcworkspace extension; takes precedence over path
+        required: false
+        default: ""
+      scheme:
+        type: string
+        description: Scheme name
+        required: true
+      platform:
+        type: string
+        description: Archive platform (iOS, macOS, tvOS, watchOS or visionOS)
+        required: false
+        default: iOS
+      configuration:
+        type: string
+        description: Archive configuration; empty uses the scheme archive configuration
+        required: false
+        default: ""
+      team-id:
+        type: string
+        description: Apple Developer team id
+        required: true
+      build-number:
+        type: string
+        description: Explicit CFBundleVersion; empty uses github.run_number + build-number-offset
+        required: false
+        default: ""
+      build-number-offset:
+        type: number
+        description: Added to github.run_number to form CFBundleVersion
+        required: false
+        default: 0
+      disallowed-configurations:
+        type: string
+        description: Space-separated configurations that must never reach App Store Connect
+        required: false
+        default: Debug
+      upload:
+        type: boolean
+        description: Upload to App Store Connect; false exports the signed package as an artifact
+        required: false
+        default: true
+      pre-build:
+        type: string
+        description: Shell command that generates the project (for example xcodegen)
+        required: false
+        default: ""
+      xcodegen:
+        type: boolean
+        description: Install XcodeGen before pre-build
+        required: false
+        default: false
+      runs-on:
+        type: string
+        description: Runner as JSON; empty picks self-hosted macOS for private repositories and xcode-27 for public ones
+        required: false
+        default: ""
+      xcode-version:
+        type: string
+        description: Xcode version on GitHub-hosted runners
+        required: false
+        default: latest-stable
+      timeout-minutes:
+        type: number
+        description: Job timeout
+        required: false
+        default: 60
+    secrets:
+      ACTIONS_TOKEN:
+        required: false
+      ASC_KEY_ID:
+        required: true
+      ASC_ISSUER_ID:
+        required: true
+      ASC_PRIVATE_KEY:
+        required: true
+    outputs:
+      build-number:
+        description: Archived CFBundleVersion
+        value: ${{ jobs.testflight.outputs.build-number }}
+
+permissions:
+  contents: read
+
+jobs:
+  testflight:
+    name: ${{ inputs.upload && 'Upload' || 'Export' }} ${{ inputs.scheme }}
+    runs-on: ${{ inputs.runs-on != '' && fromJSON(inputs.runs-on) || github.event.repository.private && fromJSON('["self-hosted","macOS","ARM64","xcode"]') || 'xcode-27' }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    concurrency:
+      group: testflight-${{ github.repository }}-${{ inputs.scheme }}
+      cancel-in-progress: false
+    outputs:
+      build-number: ${{ steps.build-number.outputs.value }}
+    env:
+      NSUnbufferedIO: "YES"
+      BUILD_ROOT: ${{ github.workspace }}/build
+      DERIVED_DATA: ${{ github.workspace }}/build/DerivedData
+      ARCHIVE_PATH: ${{ github.workspace }}/build/App.xcarchive
+      EXPORT_PATH: ${{ github.workspace }}/build/Export
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Xcode toolchain
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-setup@main
+        with:
+          actions-token: ${{ secrets.ACTIONS_TOKEN }}
+          xcode-version: ${{ inputs.xcode-version }}
+          xcodegen: ${{ inputs.xcodegen }}
+
+      - name: Prepare project
+        id: project
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-prepare@main
+        with:
+          path: ${{ inputs.path }}
+          workspace: ${{ inputs.workspace }}
+          scheme: ${{ inputs.scheme }}
+          derived-data: ${{ env.DERIVED_DATA }}
+          pre-build: ${{ inputs.pre-build }}
+
+      - name: Check archive configuration
+        env:
+          CONFIGURATION: ${{ inputs.configuration }}
+          DISALLOWED: ${{ inputs.disallowed-configurations }}
+          SCHEME: ${{ inputs.scheme }}
+          CONTAINER_PATH: ${{ steps.project.outputs.container-path }}
+        run: |
+          set -euo pipefail
+          configuration="$CONFIGURATION"
+          if [ -z "$configuration" ]; then
+            scheme_file=$(find "$CONTAINER_PATH" "$(dirname "$CONTAINER_PATH")" -path "*xcschemes/$SCHEME.xcscheme" -print -quit)
+            if [ -z "$scheme_file" ]; then
+              echo "::error::Scheme $SCHEME is not shared; set configuration explicitly"
+              exit 1
+            fi
+            configuration=$(xmllint --xpath 'string(//ArchiveAction/@buildConfiguration)' "$scheme_file")
+          fi
+          for disallowed in $DISALLOWED; do
+            if [ "$configuration" = "$disallowed" ]; then
+              echo "::error::Scheme $SCHEME archives with $configuration, which must not be uploaded to App Store Connect"
+              exit 1
+            fi
+          done
+          echo "Archive configuration: $configuration"
+
+      - name: Prepare App Store Connect key
+        id: asc-key
+        uses: oversizedev/GithubWorkflows/.github/actions/asc-api-key@main
+        with:
+          key-id: ${{ secrets.ASC_KEY_ID }}
+          private-key: ${{ secrets.ASC_PRIVATE_KEY }}
+
+      - name: Compute build number
+        id: build-number
+        env:
+          EXPLICIT_BUILD_NUMBER: ${{ inputs.build-number }}
+          RUN_NUMBER: ${{ github.run_number }}
+          OFFSET: ${{ inputs.build-number-offset }}
+        run: |
+          if [ -n "$EXPLICIT_BUILD_NUMBER" ]; then
+            echo "value=$EXPLICIT_BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(( RUN_NUMBER + OFFSET ))" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write export options
+        env:
+          TEAM_ID: ${{ inputs.team-id }}
+          EXPORT_DESTINATION: ${{ inputs.upload && 'upload' || 'export' }}
+        run: |
+          mkdir -p "$BUILD_ROOT"
+          cat > "$BUILD_ROOT/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>${EXPORT_DESTINATION}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Archive
+        env:
+          CONFIGURATION: ${{ inputs.configuration }}
+          PLATFORM: ${{ inputs.platform }}
+          TEAM_ID: ${{ inputs.team-id }}
+          BUILD_NUMBER: ${{ steps.build-number.outputs.value }}
+          KEY_PATH: ${{ steps.asc-key.outputs.key-path }}
+        run: |
+          xcodebuild archive \
+            "${{ steps.project.outputs.container-flag }}" "${{ steps.project.outputs.container-path }}" \
+            -scheme "${{ inputs.scheme }}" \
+            ${CONFIGURATION:+-configuration "$CONFIGURATION"} \
+            -destination "generic/platform=$PLATFORM" \
+            -archivePath "$ARCHIVE_PATH" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -scmProvider system \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+
+      - name: ${{ inputs.upload && 'Upload to TestFlight' || 'Export package' }}
+        env:
+          KEY_PATH: ${{ steps.asc-key.outputs.key-path }}
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist "$BUILD_ROOT/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Summary
+        env:
+          BUILD_NUMBER: ${{ steps.build-number.outputs.value }}
+          ACTION: ${{ inputs.upload && 'Uploaded to TestFlight' || 'Exported' }}
+          SCHEME: ${{ inputs.scheme }}
+        run: echo "$ACTION $SCHEME build $BUILD_NUMBER" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exported package
+        if: ${{ !inputs.upload }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-${{ inputs.scheme }}-${{ inputs.platform }}-${{ steps.build-number.outputs.value }}
+          path: build/Export
+          retention-days: 7
+
+      - name: Upload dSYMs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dsyms-${{ inputs.scheme }}-${{ inputs.platform }}-${{ steps.build-number.outputs.value }}
+          path: build/App.xcarchive/dSYMs
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Remove App Store Connect key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/private_keys"

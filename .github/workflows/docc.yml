@@ -39,7 +39,7 @@ jobs:
           xcode-version: latest-stable
         
       - name: Set environment variable
-        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
+        run: echo "BUILD_MODE=PRODUCTION" >> "$GITHUB_ENV"
         
       - name: Setup SwiftPM Config
         run: |

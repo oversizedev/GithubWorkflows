@@ -1,68 +1,48 @@
-name: Build Packages
+name: Build Package on All Platforms
 
 on:
   workflow_dispatch:
     inputs:
       package:
         type: string
-        description: Build package names
+        description: Package scheme
         required: true
-        
   workflow_call:
     inputs:
       package:
         type: string
-        description: Build package names
+        description: Package scheme
         required: true
-        
+
 jobs:
-  build:
-    name: Build
-    runs-on: ${{ github.event.repository.private && fromJSON('["self-hosted","macOS","ARM64","xcode"]') || 'xcode-27' }}
+  ios:
+    name: iOS
+    uses: oversizedev/GithubWorkflows/.github/workflows/build-swiftpm.yml@main
+    with:
+      package: ${{ inputs.package }}
+      destination: generic/platform=iOS Simulator
+    secrets: inherit
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+  macos:
+    name: macOS
+    uses: oversizedev/GithubWorkflows/.github/workflows/build-swiftpm.yml@main
+    with:
+      package: ${{ inputs.package }}
+      destination: platform=macOS,arch=arm64
+    secrets: inherit
 
-      - name: Select Xcode
-        if: runner.environment == 'github-hosted'
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-        
-      - name: Provide xcpretty fallback
-        if: runner.environment == 'self-hosted'
-        run: |
-          if ! command -v xcpretty >/dev/null; then
-            mkdir -p "$RUNNER_TEMP/bin"
-            printf '#!/bin/sh\nexec cat\n' > "$RUNNER_TEMP/bin/xcpretty"
-            chmod +x "$RUNNER_TEMP/bin/xcpretty"
-            echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-          fi
+  watchos:
+    name: watchOS
+    uses: oversizedev/GithubWorkflows/.github/workflows/build-swiftpm.yml@main
+    with:
+      package: ${{ inputs.package }}
+      destination: generic/platform=watchOS Simulator
+    secrets: inherit
 
-      - name: Setup environment variable
-        run: echo "BUILD_MODE=PRODUCTION" >> $GITHUB_ENV
-        
-      - name: Setup SwiftPM Config
-        run: |
-          echo "machine github.com login oversizedev password ${{ secrets.ACTIONS_TOKEN }}" > ~/.netrc
-          chmod 600 ~/.netrc
-          set -euo pipefail
-          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
-          defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
-
-      - name: Build iOS Package
-        run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'generic/platform=iOS Simulator' | xcpretty && exit ${PIPESTATUS[0]}
-
-      - name: Build macOS Package
-        run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'platform=macOS,arch=arm64' | xcpretty && exit ${PIPESTATUS[0]}
-
-      - name: Build watchOS Package
-        run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'generic/platform=watchOS Simulator' | xcpretty && exit ${PIPESTATUS[0]}
-
-      - name: Build tvOS Package
-        run: |
-          xcodebuild clean build -skipPackagePluginValidation -scheme ${{ inputs.package }} -destination 'generic/platform=tvOS Simulator' | xcpretty && exit ${PIPESTATUS[0]}
+  tvos:
+    name: tvOS
+    uses: oversizedev/GithubWorkflows/.github/workflows/build-swiftpm.yml@main
+    with:
+      package: ${{ inputs.package }}
+      destination: generic/platform=tvOS Simulator
+    secrets: inherit

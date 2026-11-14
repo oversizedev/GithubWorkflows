@@ -1,0 +1,61 @@
+name: Simulator destination
+description: Resolve an xcodebuild destination for the newest available simulator runtime of a platform
+
+inputs:
+  platform:
+    description: Platform (iOS, watchOS, tvOS, visionOS simulators, or macOS)
+    required: false
+    default: iOS
+  device-type:
+    description: Device name prefix to prefer (iPhone, iPad, Apple Watch, Apple TV, Apple Vision)
+    required: false
+    default: iPhone
+  destination:
+    description: Explicit destination; skips the lookup when set
+    required: false
+    default: ""
+
+outputs:
+  destination:
+    description: xcodebuild destination with the simulator id
+    value: ${{ steps.resolve.outputs.destination }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve simulator
+      id: resolve
+      shell: bash
+      env:
+        PLATFORM: ${{ inputs.platform }}
+        DEVICE_TYPE: ${{ inputs.device-type }}
+        EXPLICIT_DESTINATION: ${{ inputs.destination }}
+      run: |
+        set -euo pipefail
+        if [ "$PLATFORM" = "macOS" ] && [ -z "$EXPLICIT_DESTINATION" ]; then
+          EXPLICIT_DESTINATION="platform=macOS,arch=$(uname -m)"
+        fi
+        if [ -n "$EXPLICIT_DESTINATION" ]; then
+          echo "destination=$EXPLICIT_DESTINATION" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        device_id=$(xcrun simctl list devices available --json | /usr/bin/python3 -c '
+        import json, os, re, sys
+        platform = {"visionOS": "xrOS"}.get(os.environ["PLATFORM"], os.environ["PLATFORM"])
+        prefix = os.environ["DEVICE_TYPE"]
+        runtimes = json.load(sys.stdin)["devices"]
+        def version(key):
+            return [int(part) for part in re.findall(r"\d+", key.rsplit(platform, 1)[-1])]
+        keys = sorted((key for key in runtimes if f"SimRuntime.{platform}-" in key), key=version, reverse=True)
+        for key in keys:
+            devices = [device for device in runtimes[key] if device["name"].startswith(prefix)]
+            if devices:
+                print(devices[0]["udid"])
+                break
+        ')
+        if [ -z "$device_id" ]; then
+          echo "::error::No available $DEVICE_TYPE simulator for $PLATFORM"
+          exit 1
+        fi
+        echo "Using simulator $device_id"
+        echo "destination=platform=$PLATFORM Simulator,id=$device_id" >> "$GITHUB_OUTPUT"

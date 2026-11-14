@@ -1,0 +1,114 @@
+name: Build for Testing
+
+on:
+  workflow_call:
+    inputs:
+      path:
+        type: string
+        description: Xcode project path without the .xcodeproj extension
+        required: false
+        default: ""
+      workspace:
+        type: string
+        description: Xcode workspace path without the .xcworkspace extension; takes precedence over path
+        required: false
+        default: ""
+      scheme:
+        type: string
+        description: Scheme name
+        required: true
+      platform:
+        type: string
+        description: Platform (iOS, watchOS, tvOS, visionOS simulators or macOS)
+        required: false
+        default: iOS
+      artifact:
+        type: string
+        description: Name of the uploaded test products artifact
+        required: false
+        default: test-products
+      pre-build:
+        type: string
+        description: Shell command that generates the project (for example xcodegen)
+        required: false
+        default: ""
+      xcodegen:
+        type: boolean
+        description: Install XcodeGen before pre-build
+        required: false
+        default: false
+      runs-on:
+        type: string
+        description: Runner as JSON; empty picks self-hosted macOS for private repositories and xcode-27 for public ones
+        required: false
+        default: ""
+      xcode-version:
+        type: string
+        description: Xcode version on GitHub-hosted runners
+        required: false
+        default: latest-stable
+      timeout-minutes:
+        type: number
+        description: Job timeout
+        required: false
+        default: 40
+    outputs:
+      artifact:
+        description: Name of the uploaded test products artifact
+        value: ${{ inputs.artifact }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-for-testing:
+    name: Build ${{ inputs.scheme }} for testing
+    runs-on: ${{ inputs.runs-on != '' && fromJSON(inputs.runs-on) || github.event.repository.private && fromJSON('["self-hosted","macOS","ARM64","xcode"]') || 'xcode-27' }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    env:
+      NSUnbufferedIO: "YES"
+      DERIVED_DATA: ${{ github.workspace }}/build/DerivedData
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Xcode toolchain
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-setup@main
+        with:
+          actions-token: ${{ secrets.ACTIONS_TOKEN }}
+          xcode-version: ${{ inputs.xcode-version }}
+          xcodegen: ${{ inputs.xcodegen }}
+
+      - name: Prepare project
+        id: project
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-prepare@main
+        with:
+          path: ${{ inputs.path }}
+          workspace: ${{ inputs.workspace }}
+          scheme: ${{ inputs.scheme }}
+          derived-data: ${{ env.DERIVED_DATA }}
+          pre-build: ${{ inputs.pre-build }}
+
+      - name: Build for testing
+        env:
+          PLATFORM: ${{ inputs.platform }}
+        run: |
+          if [ "$PLATFORM" = "macOS" ]; then destination="platform=macOS"; else destination="generic/platform=$PLATFORM Simulator"; fi
+          xcodebuild build-for-testing \
+            "${{ steps.project.outputs.container-flag }}" "${{ steps.project.outputs.container-path }}" \
+            -scheme "${{ inputs.scheme }}" \
+            -destination "$destination" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -scmProvider system \
+            -skipPackagePluginValidation \
+            -skipMacroValidation
+
+      - name: Pack test products
+        run: tar -czf "$RUNNER_TEMP/test-products.tar.gz" -C "$DERIVED_DATA/Build" Products
+
+      - name: Upload test products
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact }}
+          path: ${{ runner.temp }}/test-products.tar.gz
+          retention-days: 1
