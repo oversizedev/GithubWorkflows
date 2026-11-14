@@ -101,6 +101,7 @@ jobs:
             echo "::error::No .xctestrun found in test products"
             exit 1
           fi
+          rm -rf "$RESULT_BUNDLE"
           filters=()
           for identifier in $ONLY_TESTING; do filters+=("-only-testing:$identifier"); done
           for identifier in $SKIP_TESTING; do filters+=("-skip-testing:$identifier"); done

@@ -41,7 +41,7 @@ runs:
         fi
         device_id=$(xcrun simctl list devices available --json | /usr/bin/python3 -c '
         import json, os, re, sys
-        platform = os.environ["PLATFORM"]
+        platform = {"visionOS": "xrOS"}.get(os.environ["PLATFORM"], os.environ["PLATFORM"])
         prefix = os.environ["DEVICE_TYPE"]
         runtimes = json.load(sys.stdin)["devices"]
         def version(key):
