@@ -6,7 +6,9 @@ Reusable GitHub Actions workflows and composite actions for Oversize apps and Sw
 
 All macOS jobs (checks included) run on `self-hosted, macOS, ARM64, xcode` for private repositories and on `xcode-27` for public ones.
 Pass `runs-on` (JSON: `"macos-latest"` or `["self-hosted","macOS"]`) to override. The Linux self-hosted runner
-never builds Apple platforms.
+never builds Apple platforms and is kept for heavy Linux jobs (`swiftformat.yml` builds SwiftFormat from source).
+Short Linux jobs (`bump.yml`, `release.yml`) always run on GitHub-hosted `ubuntu-latest`: they take a minute and
+use Docker actions, which cannot bind-mount the runner's temp folder on the containerized self-hosted runner.
 
 ## Workflows
 
