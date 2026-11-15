@@ -93,7 +93,13 @@ jobs:
         env:
           PLATFORM: ${{ inputs.platform }}
         run: |
-          if [ "$PLATFORM" = "macOS" ]; then destination="platform=macOS"; else destination="generic/platform=$PLATFORM Simulator"; fi
+          signing=()
+          if [ "$PLATFORM" = "macOS" ]; then
+            destination="platform=macOS"
+            signing=(CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= ENABLE_HARDENED_RUNTIME=NO)
+          else
+            destination="generic/platform=$PLATFORM Simulator"
+          fi
           xcodebuild build-for-testing \
             "${{ steps.project.outputs.container-flag }}" "${{ steps.project.outputs.container-path }}" \
             -scheme "${{ inputs.scheme }}" \
@@ -101,7 +107,8 @@ jobs:
             -derivedDataPath "$DERIVED_DATA" \
             -scmProvider system \
             -skipPackagePluginValidation \
-            -skipMacroValidation
+            -skipMacroValidation \
+            ${signing[@]+"${signing[@]}"}
 
       - name: Pack test products
         run: tar -czf "$RUNNER_TEMP/test-products.tar.gz" -C "$DERIVED_DATA/Build" Products
