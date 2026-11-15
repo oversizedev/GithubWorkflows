@@ -16,7 +16,7 @@ use Docker actions, which cannot bind-mount the runner's temp folder on the cont
 | --- | --- | --- |
 | `build-app.yml` | Build an Xcode project or workspace without signing | `path` or `workspace`, `scheme`, `destination`, `configuration`, `pre-build`, `xcodegen` |
 | `checks.yml` | SwiftFormat and SwiftLint lint plus project commands | `swiftformat`, `swiftlint`, `node-version`, `commands` |
-| `build-for-testing.yml` | Build test products once and upload them as an artifact | `path`, `scheme`, `platform`, `artifact`, `pre-build` |
+| `build-for-testing.yml` | Build test products once and upload them as an artifact; macOS builds are signed ad-hoc without hardened runtime, so no certificate is needed | `path`, `scheme`, `platform`, `artifact`, `pre-build` |
 | `test-app.yml` | Run tests from the artifact on the newest simulator, filtered by target | `artifact`, `only-testing`, `skip-testing`, `device-type`, `destination` |
 | `testflight.yml` | Archive with cloud signing and upload to TestFlight (or export only) | `path` or `workspace`, `scheme`, `platform`, `configuration`, `team-id`, `build-number`, `build-number-offset`, `upload` |
 | `build-swiftpm.yml` | Build a package for one destination | `package`, `destination` |
