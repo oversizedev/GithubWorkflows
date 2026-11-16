@@ -145,7 +145,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Xcode toolchain
-        uses: oversizedev/GithubWorkflows/.github/actions/xcode-setup@feature/manual-ios-signing
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-setup@main
         with:
           actions-token: ${{ secrets.ACTIONS_TOKEN }}
           xcode-version: ${{ inputs.xcode-version }}
@@ -156,7 +156,7 @@ jobs:
 
       - name: Prepare project
         id: project
-        uses: oversizedev/GithubWorkflows/.github/actions/xcode-prepare@feature/manual-ios-signing
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-prepare@main
         with:
           path: ${{ inputs.path }}
           workspace: ${{ inputs.workspace }}
@@ -166,14 +166,14 @@ jobs:
 
       - name: Prepare App Store Connect key
         id: asc-key
-        uses: oversizedev/GithubWorkflows/.github/actions/asc-api-key@feature/manual-ios-signing
+        uses: oversizedev/GithubWorkflows/.github/actions/asc-api-key@main
         with:
           key-id: ${{ secrets.ASC_KEY_ID }}
           private-key: ${{ secrets.ASC_PRIVATE_KEY }}
 
       - name: Archive
         id: archive
-        uses: oversizedev/GithubWorkflows/.github/actions/xcode-archive@feature/manual-ios-signing
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-archive@main
         with:
           container-flag: ${{ steps.project.outputs.container-flag }}
           container-path: ${{ steps.project.outputs.container-path }}
@@ -191,7 +191,7 @@ jobs:
 
       - name: Import Developer ID certificate
         id: identity
-        uses: oversizedev/GithubWorkflows/.github/actions/signing-keychain@feature/manual-ios-signing
+        uses: oversizedev/GithubWorkflows/.github/actions/signing-keychain@main
         with:
           p12: ${{ secrets.DEVELOPER_ID_P12 }}
           p12-password: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
@@ -200,7 +200,7 @@ jobs:
           intermediates: DeveloperIDG2CA DeveloperIDCA
 
       - name: Export with Developer ID
-        uses: oversizedev/GithubWorkflows/.github/actions/xcode-export@feature/manual-ios-signing
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-export@main
         with:
           archive-path: ${{ env.ARCHIVE_PATH }}
           export-path: ${{ env.EXPORT_PATH }}
@@ -376,7 +376,7 @@ jobs:
 
       - name: Remove signing material
         if: always()
-        uses: oversizedev/GithubWorkflows/.github/actions/signing-cleanup@feature/manual-ios-signing
+        uses: oversizedev/GithubWorkflows/.github/actions/signing-cleanup@main
 
   release:
     name: Release ${{ inputs.release-tag }}
