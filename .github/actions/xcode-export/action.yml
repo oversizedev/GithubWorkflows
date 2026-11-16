@@ -26,6 +26,10 @@ inputs:
     description: Certificate name for manual signing, for example Developer ID Application
     required: false
     default: ""
+  provisioning-profiles:
+    description: Manual signing profiles, one bundle-id=profile name per line
+    required: false
+    default: ""
   key-path:
     description: App Store Connect .p8 path (output of asc-api-key); required for automatic signing and upload
     required: false
@@ -52,6 +56,7 @@ runs:
         TEAM_ID: ${{ inputs.team-id }}
         SIGNING_STYLE: ${{ inputs.signing-style }}
         SIGNING_CERTIFICATE: ${{ inputs.signing-certificate }}
+        PROVISIONING_PROFILES: ${{ inputs.provisioning-profiles }}
         KEY_PATH: ${{ inputs.key-path }}
         KEY_ID: ${{ inputs.key-id }}
         ISSUER_ID: ${{ inputs.issuer-id }}
@@ -81,6 +86,18 @@ runs:
         plutil -insert teamID -string "$TEAM_ID" "$options"
         if [ -n "$SIGNING_CERTIFICATE" ]; then
           plutil -insert signingCertificate -string "$SIGNING_CERTIFICATE" "$options"
+        fi
+        if [ -n "$PROVISIONING_PROFILES" ]; then
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" "$options"
+          while IFS= read -r line; do
+            line=$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            [ -z "$line" ] && continue
+            if [[ "$line" != *=* ]]; then
+              echo "::error::provisioning-profiles lines must be bundle-id=profile name, got $line"
+              exit 1
+            fi
+            /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:${line%%=*} string ${line#*=}" "$options"
+          done <<< "$PROVISIONING_PROFILES"
         fi
         if [ "$METHOD" = "app-store-connect" ]; then
           plutil -insert uploadSymbols -bool YES "$options"

@@ -45,7 +45,7 @@ inputs:
     required: false
     default: ""
   signing:
-    description: automatic (cloud signing through the App Store Connect key) or adhoc (re-signed later by export)
+    description: automatic (cloud signing through the App Store Connect key), manual (project settings with an identity and profile already installed) or adhoc (re-signed later by export)
     required: false
     default: automatic
   key-path:
@@ -89,9 +89,9 @@ runs:
               exit 1
             fi
             ;;
-          adhoc) ;;
+          manual | adhoc) ;;
           *)
-            echo "::error::signing must be automatic or adhoc, got $SIGNING"
+            echo "::error::signing must be automatic, manual or adhoc, got $SIGNING"
             exit 1
             ;;
         esac
@@ -149,21 +149,27 @@ runs:
         ISSUER_ID: ${{ inputs.issuer-id }}
       run: |
         set -euo pipefail
-        if [ "$SIGNING" = "automatic" ]; then
-          signing=(
-            -allowProvisioningUpdates
-            -authenticationKeyPath "$KEY_PATH"
-            -authenticationKeyID "$KEY_ID"
-            -authenticationKeyIssuerID "$ISSUER_ID"
-            CODE_SIGN_STYLE=Automatic
-          )
-        else
-          signing=(
-            CODE_SIGN_STYLE=Manual
-            CODE_SIGN_IDENTITY=-
-            PROVISIONING_PROFILE_SPECIFIER=
-          )
-        fi
+        case "$SIGNING" in
+          automatic)
+            signing=(
+              -allowProvisioningUpdates
+              -authenticationKeyPath "$KEY_PATH"
+              -authenticationKeyID "$KEY_ID"
+              -authenticationKeyIssuerID "$ISSUER_ID"
+              CODE_SIGN_STYLE=Automatic
+            )
+            ;;
+          manual)
+            signing=()
+            ;;
+          adhoc)
+            signing=(
+              CODE_SIGN_STYLE=Manual
+              CODE_SIGN_IDENTITY=-
+              PROVISIONING_PROFILE_SPECIFIER=
+            )
+            ;;
+        esac
         versioning=(CURRENT_PROJECT_VERSION="$BUILD_NUMBER")
         if [ -n "$MARKETING_VERSION_OVERRIDE" ]; then
           versioning+=(MARKETING_VERSION="$MARKETING_VERSION_OVERRIDE")
@@ -182,6 +188,6 @@ runs:
           -scmProvider system \
           -skipPackagePluginValidation \
           -skipMacroValidation \
-          "${signing[@]}" \
+          ${signing[@]+"${signing[@]}"} \
           DEVELOPMENT_TEAM="$TEAM_ID" \
           "${versioning[@]}"
