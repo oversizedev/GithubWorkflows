@@ -1,0 +1,91 @@
+name: Export Xcode archive
+description: Write ExportOptions.plist and run xcodebuild -exportArchive
+
+inputs:
+  archive-path:
+    description: Path of the .xcarchive
+    required: true
+  export-path:
+    description: Output folder
+    required: true
+  method:
+    description: Export method (app-store-connect, developer-id, release-testing, debugging, …)
+    required: true
+  destination:
+    description: export (write files) or upload (send to App Store Connect)
+    required: false
+    default: export
+  team-id:
+    description: Apple Developer team id
+    required: true
+  signing-style:
+    description: automatic (cloud signing through the App Store Connect key) or manual (identity from the keychain)
+    required: false
+    default: automatic
+  signing-certificate:
+    description: Certificate name for manual signing, for example Developer ID Application
+    required: false
+    default: ""
+  key-path:
+    description: App Store Connect .p8 path (output of asc-api-key); required for automatic signing and upload
+    required: false
+    default: ""
+  key-id:
+    description: App Store Connect API key id
+    required: false
+    default: ""
+  issuer-id:
+    description: App Store Connect API issuer id
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Export archive
+      shell: bash
+      env:
+        ARCHIVE_PATH: ${{ inputs.archive-path }}
+        EXPORT_PATH: ${{ inputs.export-path }}
+        METHOD: ${{ inputs.method }}
+        DESTINATION: ${{ inputs.destination }}
+        TEAM_ID: ${{ inputs.team-id }}
+        SIGNING_STYLE: ${{ inputs.signing-style }}
+        SIGNING_CERTIFICATE: ${{ inputs.signing-certificate }}
+        KEY_PATH: ${{ inputs.key-path }}
+        KEY_ID: ${{ inputs.key-id }}
+        ISSUER_ID: ${{ inputs.issuer-id }}
+      run: |
+        set -euo pipefail
+        authentication=()
+        if [ -n "$KEY_PATH" ]; then
+          authentication=(
+            -allowProvisioningUpdates
+            -authenticationKeyPath "$KEY_PATH"
+            -authenticationKeyID "$KEY_ID"
+            -authenticationKeyIssuerID "$ISSUER_ID"
+          )
+        elif [ "$SIGNING_STYLE" = "automatic" ] || [ "$DESTINATION" = "upload" ]; then
+          echo "::error::Automatic signing and upload need the App Store Connect key-path, key-id and issuer-id"
+          exit 1
+        fi
+        options=$(mktemp "$RUNNER_TEMP/ExportOptions.XXXXXX")
+        plutil -create xml1 "$options"
+        plutil -insert method -string "$METHOD" "$options"
+        plutil -insert destination -string "$DESTINATION" "$options"
+        plutil -insert signingStyle -string "$SIGNING_STYLE" "$options"
+        plutil -insert teamID -string "$TEAM_ID" "$options"
+        if [ -n "$SIGNING_CERTIFICATE" ]; then
+          plutil -insert signingCertificate -string "$SIGNING_CERTIFICATE" "$options"
+        fi
+        if [ "$METHOD" = "app-store-connect" ]; then
+          plutil -insert uploadSymbols -bool YES "$options"
+          plutil -insert manageAppVersionAndBuildNumber -bool NO "$options"
+        fi
+        plutil -p "$options"
+        xcodebuild -exportArchive \
+          -archivePath "$ARCHIVE_PATH" \
+          -exportPath "$EXPORT_PATH" \
+          -exportOptionsPlist "$options" \
+          ${authentication[@]+"${authentication[@]}"}
+        rm -f "$options"

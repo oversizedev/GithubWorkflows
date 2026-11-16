@@ -32,6 +32,8 @@ Every Xcode workflow accepts `runs-on`, `xcode-version` and `timeout-minutes`.
 - `.github/actions/xcode-prepare` — generate the project, cache SwiftPM on hosted runners, resolve packages, output `-project`/`-workspace`
 - `.github/actions/simulator-destination` — destination for the newest available simulator
 - `.github/actions/asc-api-key` — write the App Store Connect `.p8` key to `$RUNNER_TEMP`
+- `.github/actions/xcode-archive` — check the archive configuration against `disallowed-configurations`, compute the build number (`build-number` or `github.run_number + build-number-offset`) and archive with `signing: automatic` (cloud signing through the App Store Connect key) or `signing: adhoc` (re-signed by export)
+- `.github/actions/xcode-export` — write `ExportOptions.plist` for `method`, `destination`, `signing-style` and `signing-certificate`, then run `xcodebuild -exportArchive` (with the App Store Connect key when given)
 
 ## Secrets
 

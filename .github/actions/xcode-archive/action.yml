@@ -1,0 +1,183 @@
+name: Archive Xcode project
+description: Check the archive configuration, compute the build number and run xcodebuild archive
+
+inputs:
+  container-flag:
+    description: -project or -workspace (output of xcode-prepare)
+    required: true
+  container-path:
+    description: Path to the .xcodeproj or .xcworkspace (output of xcode-prepare)
+    required: true
+  scheme:
+    description: Scheme name
+    required: true
+  configuration:
+    description: Archive configuration; empty uses the scheme archive configuration
+    required: false
+    default: ""
+  disallowed-configurations:
+    description: Space-separated configurations that must never be distributed
+    required: false
+    default: Debug
+  platform:
+    description: Archive platform (iOS, macOS, tvOS, watchOS or visionOS)
+    required: false
+    default: iOS
+  archive-path:
+    description: Path of the .xcarchive to create
+    required: true
+  derived-data:
+    description: DerivedData path
+    required: true
+  team-id:
+    description: Apple Developer team id
+    required: true
+  build-number:
+    description: Explicit CFBundleVersion; empty uses github.run_number + build-number-offset
+    required: false
+    default: ""
+  build-number-offset:
+    description: Added to github.run_number to form CFBundleVersion
+    required: false
+    default: "0"
+  marketing-version:
+    description: Explicit CFBundleShortVersionString; empty uses the project MARKETING_VERSION
+    required: false
+    default: ""
+  signing:
+    description: automatic (cloud signing through the App Store Connect key) or adhoc (re-signed later by export)
+    required: false
+    default: automatic
+  key-path:
+    description: App Store Connect .p8 path (output of asc-api-key); required for automatic signing
+    required: false
+    default: ""
+  key-id:
+    description: App Store Connect API key id; required for automatic signing
+    required: false
+    default: ""
+  issuer-id:
+    description: App Store Connect API issuer id; required for automatic signing
+    required: false
+    default: ""
+
+outputs:
+  build-number:
+    description: Archived CFBundleVersion
+    value: ${{ steps.build-number.outputs.value }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check archive configuration
+      shell: bash
+      env:
+        CONFIGURATION: ${{ inputs.configuration }}
+        DISALLOWED: ${{ inputs.disallowed-configurations }}
+        SCHEME: ${{ inputs.scheme }}
+        CONTAINER_PATH: ${{ inputs.container-path }}
+        SIGNING: ${{ inputs.signing }}
+        KEY_PATH: ${{ inputs.key-path }}
+        KEY_ID: ${{ inputs.key-id }}
+        ISSUER_ID: ${{ inputs.issuer-id }}
+      run: |
+        set -euo pipefail
+        case "$SIGNING" in
+          automatic)
+            if [ -z "$KEY_PATH" ] || [ -z "$KEY_ID" ] || [ -z "$ISSUER_ID" ]; then
+              echo "::error::Automatic signing needs key-path, key-id and issuer-id"
+              exit 1
+            fi
+            ;;
+          adhoc) ;;
+          *)
+            echo "::error::signing must be automatic or adhoc, got $SIGNING"
+            exit 1
+            ;;
+        esac
+        configuration="$CONFIGURATION"
+        if [ -z "$configuration" ]; then
+          scheme_file=$(find "$CONTAINER_PATH" "$(dirname "$CONTAINER_PATH")" -path "*xcschemes/$SCHEME.xcscheme" -print -quit)
+          if [ -z "$scheme_file" ]; then
+            echo "::error::Scheme $SCHEME is not shared; set configuration explicitly"
+            exit 1
+          fi
+          configuration=$(xmllint --xpath 'string(//ArchiveAction/@buildConfiguration)' "$scheme_file")
+        fi
+        for disallowed in $DISALLOWED; do
+          if [ "$configuration" = "$disallowed" ]; then
+            echo "::error::Scheme $SCHEME archives with $configuration, which must not be distributed"
+            exit 1
+          fi
+        done
+        echo "Archive configuration: $configuration"
+
+    - name: Compute build number
+      id: build-number
+      shell: bash
+      env:
+        EXPLICIT_BUILD_NUMBER: ${{ inputs.build-number }}
+        RUN_NUMBER: ${{ github.run_number }}
+        OFFSET: ${{ inputs.build-number-offset }}
+      run: |
+        if [ -n "$EXPLICIT_BUILD_NUMBER" ]; then
+          echo "value=$EXPLICIT_BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+        else
+          echo "value=$(( RUN_NUMBER + OFFSET ))" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Archive
+      shell: bash
+      env:
+        CONTAINER_FLAG: ${{ inputs.container-flag }}
+        CONTAINER_PATH: ${{ inputs.container-path }}
+        SCHEME: ${{ inputs.scheme }}
+        CONFIGURATION: ${{ inputs.configuration }}
+        PLATFORM: ${{ inputs.platform }}
+        ARCHIVE_PATH: ${{ inputs.archive-path }}
+        DERIVED_DATA: ${{ inputs.derived-data }}
+        TEAM_ID: ${{ inputs.team-id }}
+        BUILD_NUMBER: ${{ steps.build-number.outputs.value }}
+        MARKETING_VERSION_OVERRIDE: ${{ inputs.marketing-version }}
+        SIGNING: ${{ inputs.signing }}
+        KEY_PATH: ${{ inputs.key-path }}
+        KEY_ID: ${{ inputs.key-id }}
+        ISSUER_ID: ${{ inputs.issuer-id }}
+      run: |
+        set -euo pipefail
+        if [ "$SIGNING" = "automatic" ]; then
+          signing=(
+            -allowProvisioningUpdates
+            -authenticationKeyPath "$KEY_PATH"
+            -authenticationKeyID "$KEY_ID"
+            -authenticationKeyIssuerID "$ISSUER_ID"
+            CODE_SIGN_STYLE=Automatic
+          )
+        else
+          signing=(
+            CODE_SIGN_STYLE=Manual
+            CODE_SIGN_IDENTITY=-
+            PROVISIONING_PROFILE_SPECIFIER=
+          )
+        fi
+        versioning=(CURRENT_PROJECT_VERSION="$BUILD_NUMBER")
+        if [ -n "$MARKETING_VERSION_OVERRIDE" ]; then
+          versioning+=(MARKETING_VERSION="$MARKETING_VERSION_OVERRIDE")
+        fi
+        configuration=()
+        if [ -n "$CONFIGURATION" ]; then
+          configuration=(-configuration "$CONFIGURATION")
+        fi
+        xcodebuild archive \
+          "$CONTAINER_FLAG" "$CONTAINER_PATH" \
+          -scheme "$SCHEME" \
+          ${configuration[@]+"${configuration[@]}"} \
+          -destination "generic/platform=$PLATFORM" \
+          -archivePath "$ARCHIVE_PATH" \
+          -derivedDataPath "$DERIVED_DATA" \
+          -scmProvider system \
+          -skipPackagePluginValidation \
+          -skipMacroValidation \
+          "${signing[@]}" \
+          DEVELOPMENT_TEAM="$TEAM_ID" \
+          "${versioning[@]}"
