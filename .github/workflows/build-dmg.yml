@@ -166,7 +166,7 @@ jobs:
 
       - name: Prepare App Store Connect key
         id: asc-key
-        uses: oversizedev/GithubWorkflows/.github/actions/asc-api-key@main
+        uses: oversizedev/GithubWorkflows/.github/actions/asc-api-key@feature/xcode-archive-actions
         with:
           key-id: ${{ secrets.ASC_KEY_ID }}
           private-key: ${{ secrets.ASC_PRIVATE_KEY }}
