@@ -33,22 +33,23 @@ runs:
         key_path="$key_dir/AuthKey_${KEY_ID}.p8"
         mkdir -p "$key_dir"
         umask 077
+        pem_body() {
+          sed -e 's/-----BEGIN PRIVATE KEY-----//' -e 's/-----END PRIVATE KEY-----//' | tr -d ' \r\n\t'
+        }
+        der_path="$key_path.der"
         if printf '%s' "$PRIVATE_KEY" | grep -q "BEGIN PRIVATE KEY"; then
-          printf '%s\n' "$PRIVATE_KEY" | tr -d '\r' > "$key_path"
+          printf '%s\n' "$PRIVATE_KEY" | pem_body | base64 --decode > "$der_path"
         else
-          printf '%s' "$PRIVATE_KEY" | tr -d ' \r\n\t' | base64 --decode > "$key_path"
-          if ! grep -q "BEGIN PRIVATE KEY" "$key_path"; then
-            if ! openssl pkey -inform DER -in "$key_path" -out "$key_path.pem" 2>/dev/null; then
-              rm -f "$key_path" "$key_path.pem"
-              echo "::error::App Store Connect private key is not a .p8 PEM, its base64 or its body without the BEGIN/END lines"
-              exit 1
-            fi
-            mv "$key_path.pem" "$key_path"
+          printf '%s' "$PRIVATE_KEY" | tr -d ' \r\n\t' | base64 --decode > "$der_path"
+          if grep -q "BEGIN PRIVATE KEY" "$der_path"; then
+            pem_body < "$der_path" | base64 --decode > "$der_path.tmp"
+            mv "$der_path.tmp" "$der_path"
           fi
         fi
-        if ! openssl pkey -in "$key_path" -noout 2>/dev/null; then
-          rm -f "$key_path"
-          echo "::error::App Store Connect private key is not a valid PEM private key"
+        if ! openssl pkey -inform DER -in "$der_path" -out "$key_path" 2>/dev/null; then
+          rm -f "$der_path" "$key_path"
+          echo "::error::App Store Connect private key is not a .p8 PEM, its base64 or its body without the BEGIN/END lines"
           exit 1
         fi
+        rm -f "$der_path"
         echo "key-path=$key_path" >> "$GITHUB_OUTPUT"
