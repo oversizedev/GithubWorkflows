@@ -227,7 +227,6 @@ jobs:
           CONFIGURATION: ${{ inputs.configuration }}
           MARKETING_VERSION_OVERRIDE: ${{ inputs.marketing-version }}
           BUILD_NUMBER: ${{ steps.build-number.outputs.value }}
-          KEY_PATH: ${{ steps.asc-key.outputs.key-path }}
         run: |
           xcodebuild archive \
             "${{ steps.project.outputs.container-flag }}" "${{ steps.project.outputs.container-path }}" \
@@ -239,12 +238,10 @@ jobs:
             -scmProvider system \
             -skipPackagePluginValidation \
             -skipMacroValidation \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            PROVISIONING_PROFILE_SPECIFIER= \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             ${MARKETING_VERSION_OVERRIDE:+MARKETING_VERSION="$MARKETING_VERSION_OVERRIDE"}
 

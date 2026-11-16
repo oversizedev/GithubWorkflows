@@ -67,7 +67,8 @@ jobs:
 
 ## DMG
 
-`build-dmg.yml` archives a macOS app and exports it with `method=developer-id`. The Developer ID certificate is
+`build-dmg.yml` archives a macOS app signed ad-hoc (the runner has no development certificate and its keychain
+cannot take a new one) and exports it with `method=developer-id`, which re-signs it. The Developer ID certificate is
 cloud-managed: the App Store Connect Team key with the Admin role signs through `-allowProvisioningUpdates`, so no
 `.p12` is stored in secrets. The workflow verifies the signature (Developer ID Application, team, hardened runtime,
 timestamp, no `get-task-allow`), packs `<app-name>-<version>-<build>.dmg` with an `Applications` link, notarizes it
