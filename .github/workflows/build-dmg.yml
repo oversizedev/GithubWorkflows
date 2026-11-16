@@ -1,0 +1,442 @@
+name: Build DMG
+
+on:
+  workflow_call:
+    inputs:
+      path:
+        type: string
+        description: Xcode project path without the .xcodeproj extension
+        required: false
+        default: ""
+      workspace:
+        type: string
+        description: Xcode workspace path without the .xcworkspace extension; takes precedence over path
+        required: false
+        default: ""
+      scheme:
+        type: string
+        description: Scheme name
+        required: true
+      configuration:
+        type: string
+        description: Archive configuration; empty uses the scheme archive configuration
+        required: false
+        default: ""
+      team-id:
+        type: string
+        description: Apple Developer team id
+        required: true
+      app-name:
+        type: string
+        description: Name of the exported .app without the extension; also the DMG file and volume name
+        required: true
+      marketing-version:
+        type: string
+        description: Explicit CFBundleShortVersionString; empty uses the project MARKETING_VERSION
+        required: false
+        default: ""
+      build-number:
+        type: string
+        description: Explicit CFBundleVersion; empty uses github.run_number + build-number-offset
+        required: false
+        default: ""
+      build-number-offset:
+        type: number
+        description: Added to github.run_number to form CFBundleVersion
+        required: false
+        default: 0
+      disallowed-configurations:
+        type: string
+        description: Space-separated configurations that must never be distributed
+        required: false
+        default: Debug
+      notarize:
+        type: boolean
+        description: Notarize and staple the DMG; false is for pipeline debugging and cannot be combined with release-tag
+        required: false
+        default: true
+      release-tag:
+        type: string
+        description: Existing git tag to attach the DMG to as a GitHub Release; empty skips the release
+        required: false
+        default: ""
+      pre-build:
+        type: string
+        description: Shell command that generates the project (for example xcodegen)
+        required: false
+        default: ""
+      xcodegen:
+        type: boolean
+        description: Install XcodeGen before pre-build
+        required: false
+        default: false
+      runs-on:
+        type: string
+        description: Runner as JSON; empty picks self-hosted macOS for private repositories and xcode-27 for public ones
+        required: false
+        default: ""
+      xcode-version:
+        type: string
+        description: Xcode version on GitHub-hosted runners
+        required: false
+        default: latest-stable
+      timeout-minutes:
+        type: number
+        description: Job timeout
+        required: false
+        default: 60
+    secrets:
+      ACTIONS_TOKEN:
+        required: false
+      ASC_KEY_ID:
+        required: true
+      ASC_ISSUER_ID:
+        required: true
+      ASC_PRIVATE_KEY:
+        required: true
+    outputs:
+      artifact:
+        description: Name of the uploaded DMG artifact
+        value: ${{ jobs.dmg.outputs.artifact }}
+      dmg-name:
+        description: DMG file name
+        value: ${{ jobs.dmg.outputs.dmg-name }}
+
+permissions:
+  contents: read
+
+jobs:
+  dmg:
+    name: DMG ${{ inputs.app-name }}
+    runs-on: ${{ inputs.runs-on != '' && fromJSON(inputs.runs-on) || github.event.repository.private && fromJSON('["self-hosted","macOS","ARM64","xcode"]') || 'xcode-27' }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    concurrency:
+      group: dmg-${{ github.repository }}-${{ github.ref }}
+      cancel-in-progress: false
+    outputs:
+      artifact: ${{ steps.dmg.outputs.artifact }}
+      dmg-name: ${{ steps.dmg.outputs.name }}
+    env:
+      NSUnbufferedIO: "YES"
+      BUILD_ROOT: ${{ github.workspace }}/build
+      DERIVED_DATA: ${{ github.workspace }}/build/DerivedData
+      ARCHIVE_PATH: ${{ github.workspace }}/build/App.xcarchive
+      EXPORT_PATH: ${{ github.workspace }}/build/Export
+      DMG_ROOT: ${{ github.workspace }}/build/DMG
+      APP_NAME: ${{ inputs.app-name }}
+      TEAM_ID: ${{ inputs.team-id }}
+      NOTARIZE: ${{ inputs.notarize }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - name: Check inputs
+        env:
+          RELEASE_TAG: ${{ inputs.release-tag }}
+        run: |
+          if [ -n "$RELEASE_TAG" ] && [ "$NOTARIZE" != "true" ]; then
+            echo "::error::release-tag requires notarize: true"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Xcode toolchain
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-setup@main
+        with:
+          actions-token: ${{ secrets.ACTIONS_TOKEN }}
+          xcode-version: ${{ inputs.xcode-version }}
+          xcodegen: ${{ inputs.xcodegen }}
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Prepare project
+        id: project
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-prepare@main
+        with:
+          path: ${{ inputs.path }}
+          workspace: ${{ inputs.workspace }}
+          scheme: ${{ inputs.scheme }}
+          derived-data: ${{ env.DERIVED_DATA }}
+          pre-build: ${{ inputs.pre-build }}
+
+      - name: Check archive configuration
+        env:
+          CONFIGURATION: ${{ inputs.configuration }}
+          DISALLOWED: ${{ inputs.disallowed-configurations }}
+          SCHEME: ${{ inputs.scheme }}
+          CONTAINER_PATH: ${{ steps.project.outputs.container-path }}
+        run: |
+          set -euo pipefail
+          configuration="$CONFIGURATION"
+          if [ -z "$configuration" ]; then
+            scheme_file=$(find "$CONTAINER_PATH" "$(dirname "$CONTAINER_PATH")" -path "*xcschemes/$SCHEME.xcscheme" -print -quit)
+            if [ -z "$scheme_file" ]; then
+              echo "::error::Scheme $SCHEME is not shared; set configuration explicitly"
+              exit 1
+            fi
+            configuration=$(xmllint --xpath 'string(//ArchiveAction/@buildConfiguration)' "$scheme_file")
+          fi
+          for disallowed in $DISALLOWED; do
+            if [ "$configuration" = "$disallowed" ]; then
+              echo "::error::Scheme $SCHEME archives with $configuration, which must not be distributed"
+              exit 1
+            fi
+          done
+          echo "Archive configuration: $configuration"
+
+      - name: Prepare App Store Connect key
+        id: asc-key
+        uses: oversizedev/GithubWorkflows/.github/actions/asc-api-key@main
+        with:
+          key-id: ${{ secrets.ASC_KEY_ID }}
+          private-key: ${{ secrets.ASC_PRIVATE_KEY }}
+
+      - name: Compute build number
+        id: build-number
+        env:
+          EXPLICIT_BUILD_NUMBER: ${{ inputs.build-number }}
+          RUN_NUMBER: ${{ github.run_number }}
+          OFFSET: ${{ inputs.build-number-offset }}
+        run: |
+          if [ -n "$EXPLICIT_BUILD_NUMBER" ]; then
+            echo "value=$EXPLICIT_BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(( RUN_NUMBER + OFFSET ))" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write export options
+        run: |
+          mkdir -p "$BUILD_ROOT"
+          cat > "$BUILD_ROOT/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>developer-id</string>
+            <key>destination</key><string>export</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Archive
+        env:
+          CONFIGURATION: ${{ inputs.configuration }}
+          MARKETING_VERSION_OVERRIDE: ${{ inputs.marketing-version }}
+          BUILD_NUMBER: ${{ steps.build-number.outputs.value }}
+          KEY_PATH: ${{ steps.asc-key.outputs.key-path }}
+        run: |
+          xcodebuild archive \
+            "${{ steps.project.outputs.container-flag }}" "${{ steps.project.outputs.container-path }}" \
+            -scheme "${{ inputs.scheme }}" \
+            ${CONFIGURATION:+-configuration "$CONFIGURATION"} \
+            -destination "generic/platform=macOS" \
+            -archivePath "$ARCHIVE_PATH" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -scmProvider system \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            ${MARKETING_VERSION_OVERRIDE:+MARKETING_VERSION="$MARKETING_VERSION_OVERRIDE"}
+
+      - name: Export with Developer ID
+        env:
+          KEY_PATH: ${{ steps.asc-key.outputs.key-path }}
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist "$BUILD_ROOT/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Verify signature
+        id: app
+        run: |
+          set -euo pipefail
+          apps=$(find "$EXPORT_PATH" -maxdepth 1 -name "*.app")
+          app_count=$(printf '%s\n' "$apps" | grep -c . || true)
+          app_path="$EXPORT_PATH/$APP_NAME.app"
+          if [ "$app_count" -ne 1 ] || [ ! -d "$app_path" ]; then
+            echo "::error::Expected exactly $APP_NAME.app in the export, found: ${apps:-nothing}"
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          details=$(codesign -dvvv "$app_path" 2>&1)
+          echo "$details"
+          echo "$details" | grep -q "^Authority=Developer ID Application" || { echo "::error::Not signed with Developer ID Application"; exit 1; }
+          echo "$details" | grep -q "^TeamIdentifier=$TEAM_ID$" || { echo "::error::TeamIdentifier is not $TEAM_ID"; exit 1; }
+          echo "$details" | grep -Eq "^CodeDirectory .*flags=.*runtime" || { echo "::error::Hardened runtime is not enabled"; exit 1; }
+          echo "$details" | grep -q "^Timestamp=" || { echo "::error::Signature has no secure timestamp"; exit 1; }
+          if codesign -d --entitlements - --xml "$app_path" 2>/dev/null | grep -q "get-task-allow"; then
+            echo "::error::get-task-allow entitlement is present"
+            exit 1
+          fi
+          info_plist="$app_path/Contents/Info.plist"
+          version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$info_plist")
+          build=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$info_plist")
+          executable=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$info_plist")
+          echo "Version $version ($build), architectures: $(lipo -archs "$app_path/Contents/MacOS/$executable")"
+          {
+            echo "path=$app_path"
+            echo "version=$version"
+            echo "build=$build"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create DMG
+        id: dmg
+        env:
+          APP_PATH: ${{ steps.app.outputs.path }}
+          VERSION: ${{ steps.app.outputs.version }}
+          BUILD: ${{ steps.app.outputs.build }}
+        run: |
+          set -euo pipefail
+          staging=$(mktemp -d "$RUNNER_TEMP/dmg-staging.XXXXXX")
+          echo "DMG_STAGING=$staging" >> "$GITHUB_ENV"
+          ditto "$APP_PATH" "$staging/$APP_NAME.app"
+          ln -s /Applications "$staging/Applications"
+          mkdir -p "$DMG_ROOT"
+          name="$APP_NAME-$VERSION-$BUILD.dmg"
+          hdiutil create -volname "$APP_NAME" -srcfolder "$staging" -format UDZO -fs HFS+ -ov "$DMG_ROOT/$name"
+          {
+            echo "name=$name"
+            echo "path=$DMG_ROOT/$name"
+            echo "artifact=dmg-$APP_NAME-$BUILD"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notarize
+        if: inputs.notarize
+        env:
+          DMG_PATH: ${{ steps.dmg.outputs.path }}
+          KEY_PATH: ${{ steps.asc-key.outputs.key-path }}
+        run: |
+          set +e -uo pipefail
+          result="$DMG_ROOT/notarization.json"
+          xcrun notarytool submit "$DMG_PATH" \
+            --key "$KEY_PATH" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" \
+            --wait --timeout 30m --output-format json > "$result"
+          submit_status=$?
+          cat "$result"
+          submission_id=$(plutil -extract id raw -o - "$result" 2>/dev/null || true)
+          notary_status=$(plutil -extract status raw -o - "$result" 2>/dev/null || true)
+          echo "Submission: ${submission_id:-unknown}, status: ${notary_status:-unknown}, exit code: $submit_status"
+          if [ "$notary_status" = "Accepted" ]; then
+            exit 0
+          fi
+          if [ -n "$submission_id" ] && [ -n "$notary_status" ] && [ "$notary_status" != "In Progress" ]; then
+            xcrun notarytool log "$submission_id" \
+              --key "$KEY_PATH" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" \
+              "$DMG_ROOT/notarization-log.json" || true
+            cat "$DMG_ROOT/notarization-log.json" 2>/dev/null || true
+            echo "::error::Notarization finished with status $notary_status"
+          else
+            echo "::error::Notarization did not finish (submission ${submission_id:-unknown}); check it later with notarytool wait"
+          fi
+          exit 1
+
+      - name: Staple and assess
+        if: inputs.notarize
+        env:
+          DMG_PATH: ${{ steps.dmg.outputs.path }}
+        run: |
+          set -euo pipefail
+          xcrun stapler staple "$DMG_PATH"
+          xcrun stapler validate "$DMG_PATH"
+          mountpoint=$(mktemp -d "$RUNNER_TEMP/dmg-mount.XXXXXX")
+          echo "DMG_MOUNTPOINT=$mountpoint" >> "$GITHUB_ENV"
+          trap 'hdiutil detach "$mountpoint" -quiet || true' EXIT
+          hdiutil attach "$DMG_PATH" -nobrowse -readonly -mountpoint "$mountpoint" -quiet
+          assessment=$(spctl -a -t exec -vv "$mountpoint/$APP_NAME.app" 2>&1)
+          echo "$assessment"
+          echo "$assessment" | grep -q "source=Notarized Developer ID" || { echo "::error::Gatekeeper did not accept the notarized app"; exit 1; }
+
+      - name: Summary
+        env:
+          DMG_PATH: ${{ steps.dmg.outputs.path }}
+          DMG_NAME: ${{ steps.dmg.outputs.name }}
+        run: |
+          checksum=$(shasum -a 256 "$DMG_PATH" | cut -d ' ' -f 1)
+          if [ "$NOTARIZE" = "true" ]; then
+            state="notarized and stapled"
+          else
+            state="NOT NOTARIZED"
+          fi
+          echo "$DMG_NAME ($state), SHA-256 $checksum" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.dmg.outputs.artifact }}
+          path: ${{ steps.dmg.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload notarization log
+        if: always() && inputs.notarize && steps.dmg.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: notarization-${{ inputs.app-name }}-${{ steps.build-number.outputs.value }}
+          path: build/DMG/notarization*.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload dSYMs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dsyms-${{ inputs.app-name }}-${{ steps.build-number.outputs.value }}
+          path: build/App.xcarchive/dSYMs
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Clean up
+        if: always()
+        run: |
+          if [ -n "${DMG_MOUNTPOINT:-}" ] && [ -d "$DMG_MOUNTPOINT" ]; then
+            hdiutil detach "$DMG_MOUNTPOINT" -force -quiet || true
+            rmdir "$DMG_MOUNTPOINT" || true
+          fi
+          if [ -n "${DMG_STAGING:-}" ]; then
+            rm -rf "$DMG_STAGING"
+          fi
+          rm -rf "$RUNNER_TEMP/private_keys"
+
+  release:
+    name: Release ${{ inputs.release-tag }}
+    needs: dmg
+    if: inputs.release-tag != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download DMG
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ needs.dmg.outputs.artifact }}
+          path: dmg
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.release-tag }}
+          DMG_NAME: ${{ needs.dmg.outputs.dmg-name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "dmg/$DMG_NAME" --clobber
+          else
+            gh release create "$TAG" "dmg/$DMG_NAME" --verify-tag --generate-notes --title "$TAG"
+          fi
