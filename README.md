@@ -39,7 +39,7 @@ Every Xcode workflow accepts `runs-on`, `xcode-version` and `timeout-minutes`.
 | --- | --- |
 | `ACTIONS_TOKEN` | Read access to private `oversizedev` repositories |
 | `ASC_KEY_ID`, `ASC_ISSUER_ID` | App Store Connect API key (Admin role, needed for cloud signing) |
-| `ASC_PRIVATE_KEY` | Contents of `AuthKey_<id>.p8`, plain or base64 |
+| `ASC_PRIVATE_KEY` | Contents of `AuthKey_<id>.p8`: PEM, its base64, or the key body without the `BEGIN`/`END` lines |
 
 ## TestFlight
 
