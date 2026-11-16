@@ -46,11 +46,6 @@ on:
         description: Space-separated configurations that must never reach App Store Connect
         required: false
         default: Debug
-      archive-signing:
-        type: string
-        description: automatic (cloud development signing, needs an unlocked keychain) or adhoc (export re-signs with cloud distribution signing)
-        required: false
-        default: automatic
       upload:
         type: boolean
         description: Upload to App Store Connect; false exports the signed package as an artifact
@@ -156,7 +151,7 @@ jobs:
           team-id: ${{ inputs.team-id }}
           build-number: ${{ inputs.build-number }}
           build-number-offset: ${{ inputs.build-number-offset }}
-          signing: ${{ inputs.archive-signing }}
+          signing: automatic
           key-path: ${{ steps.asc-key.outputs.key-path }}
           key-id: ${{ secrets.ASC_KEY_ID }}
           issuer-id: ${{ secrets.ASC_ISSUER_ID }}
