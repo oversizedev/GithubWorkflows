@@ -40,6 +40,7 @@ Every Xcode workflow accepts `runs-on`, `xcode-version` and `timeout-minutes`.
 | `ACTIONS_TOKEN` | Read access to private `oversizedev` repositories |
 | `ASC_KEY_ID`, `ASC_ISSUER_ID` | App Store Connect API key (Admin role, needed for cloud signing) |
 | `ASC_PRIVATE_KEY` | Contents of `AuthKey_<id>.p8`, plain or base64 |
+| `DEVELOPER_ID_P12`, `DEVELOPER_ID_P12_PASSWORD` | Developer ID Application certificate with its private key as base64 `.p12`, and its password (`build-dmg.yml`) |
 
 ## TestFlight
 
@@ -67,12 +68,14 @@ jobs:
 
 ## DMG
 
-`build-dmg.yml` archives a macOS app and exports it with `method=developer-id`. The Developer ID certificate is
-cloud-managed: the App Store Connect Team key with the Admin role signs through `-allowProvisioningUpdates`, so no
-`.p12` is stored in secrets. The workflow verifies the signature (Developer ID Application, team, hardened runtime,
-timestamp, no `get-task-allow`), packs `<app-name>-<version>-<build>.dmg` with an `Applications` link, notarizes it
-with `notarytool` using the same key, staples it and checks it with Gatekeeper. The DMG itself is not signed: cloud
-signing has no local private key, and a notarized, stapled UDIF image with a signed app passes Gatekeeper.
+`build-dmg.yml` archives a macOS app signed ad-hoc (the runner has no development certificate and its keychain
+cannot take a new one) and exports it with `method=developer-id` and manual signing. Cloud-managed Developer ID
+signing does not work with App Store Connect API keys, so the Developer ID Application identity comes from
+`DEVELOPER_ID_P12`: it is imported into a temporary keychain with a random password, added to the user search list
+for the job and removed afterwards. The workflow verifies the signature of the app and every nested Mach-O
+(Developer ID Application, team, hardened runtime, timestamp, no `get-task-allow`), packs and signs
+`<app-name>-<version>-<build>.dmg` with an `Applications` link, notarizes it with `notarytool` using the App Store
+Connect key, staples it and checks it with Gatekeeper.
 
 The DMG is uploaded as an artifact. With `release-tag` a separate `ubuntu-latest` job attaches it to the GitHub
 Release of that tag (created when missing); the caller job must grant `contents: write`, and `notarize: false`
@@ -100,4 +103,6 @@ jobs:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+      DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+      DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
 ```
