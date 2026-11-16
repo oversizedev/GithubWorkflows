@@ -131,14 +131,14 @@ jobs:
 
       - name: Prepare App Store Connect key
         id: asc-key
-        uses: oversizedev/GithubWorkflows/.github/actions/asc-api-key@feature/xcode-archive-actions
+        uses: oversizedev/GithubWorkflows/.github/actions/asc-api-key@main
         with:
           key-id: ${{ secrets.ASC_KEY_ID }}
           private-key: ${{ secrets.ASC_PRIVATE_KEY }}
 
       - name: Archive
         id: archive
-        uses: oversizedev/GithubWorkflows/.github/actions/xcode-archive@feature/xcode-archive-actions
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-archive@main
         with:
           container-flag: ${{ steps.project.outputs.container-flag }}
           container-path: ${{ steps.project.outputs.container-path }}
@@ -157,7 +157,7 @@ jobs:
           issuer-id: ${{ secrets.ASC_ISSUER_ID }}
 
       - name: ${{ inputs.upload && 'Upload to TestFlight' || 'Export package' }}
-        uses: oversizedev/GithubWorkflows/.github/actions/xcode-export@feature/xcode-archive-actions
+        uses: oversizedev/GithubWorkflows/.github/actions/xcode-export@main
         with:
           archive-path: ${{ env.ARCHIVE_PATH }}
           export-path: ${{ env.EXPORT_PATH }}
