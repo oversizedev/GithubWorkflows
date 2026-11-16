@@ -34,8 +34,21 @@ runs:
         mkdir -p "$key_dir"
         umask 077
         if printf '%s' "$PRIVATE_KEY" | grep -q "BEGIN PRIVATE KEY"; then
-          printf '%s\n' "$PRIVATE_KEY" > "$key_path"
+          printf '%s\n' "$PRIVATE_KEY" | tr -d '\r' > "$key_path"
         else
-          printf '%s' "$PRIVATE_KEY" | base64 --decode > "$key_path"
+          printf '%s' "$PRIVATE_KEY" | tr -d ' \r\n\t' | base64 --decode > "$key_path"
+          if ! grep -q "BEGIN PRIVATE KEY" "$key_path"; then
+            if ! openssl pkey -inform DER -in "$key_path" -out "$key_path.pem" 2>/dev/null; then
+              rm -f "$key_path" "$key_path.pem"
+              echo "::error::App Store Connect private key is not a .p8 PEM, its base64 or its body without the BEGIN/END lines"
+              exit 1
+            fi
+            mv "$key_path.pem" "$key_path"
+          fi
+        fi
+        if ! openssl pkey -in "$key_path" -noout 2>/dev/null; then
+          rm -f "$key_path"
+          echo "::error::App Store Connect private key is not a valid PEM private key"
+          exit 1
         fi
         echo "key-path=$key_path" >> "$GITHUB_OUTPUT"
