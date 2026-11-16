@@ -58,6 +58,10 @@ runs:
       run: |
         set -euo pipefail
         authentication=()
+        if [ -n "$KEY_PATH$KEY_ID$ISSUER_ID" ] && { [ -z "$KEY_PATH" ] || [ -z "$KEY_ID" ] || [ -z "$ISSUER_ID" ]; }; then
+          echo "::error::Pass all of key-path, key-id and issuer-id, or none of them"
+          exit 1
+        fi
         if [ -n "$KEY_PATH" ]; then
           authentication=(
             -allowProvisioningUpdates

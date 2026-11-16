@@ -122,9 +122,13 @@ runs:
       run: |
         if [ -n "$EXPLICIT_BUILD_NUMBER" ]; then
           echo "value=$EXPLICIT_BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-        else
-          echo "value=$(( RUN_NUMBER + OFFSET ))" >> "$GITHUB_OUTPUT"
+          exit 0
         fi
+        if ! [[ "$OFFSET" =~ ^[0-9]+$ ]]; then
+          echo "::error::build-number-offset must be a non-negative integer, got $OFFSET"
+          exit 1
+        fi
+        echo "value=$(( RUN_NUMBER + 10#$OFFSET ))" >> "$GITHUB_OUTPUT"
 
     - name: Archive
       shell: bash
