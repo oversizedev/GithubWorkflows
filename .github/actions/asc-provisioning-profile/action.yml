@@ -9,7 +9,7 @@ inputs:
     description: Profile name the project refers to in PROVISIONING_PROFILE_SPECIFIER
     required: true
   profile-type:
-    description: IOS_APP_STORE, TVOS_APP_STORE, MAC_APP_STORE, IOS_APP_ADHOC or MAC_APP_DIRECT
+    description: IOS_APP_STORE, TVOS_APP_STORE, MAC_APP_STORE or MAC_APP_DIRECT
     required: false
     default: IOS_APP_STORE
   certificate-serial:

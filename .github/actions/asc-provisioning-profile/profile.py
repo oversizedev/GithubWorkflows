@@ -15,13 +15,11 @@ PLATFORMS = {
     "IOS_APP_STORE": "IOS",
     "TVOS_APP_STORE": "IOS",
     "MAC_APP_STORE": "MAC_OS",
-    "IOS_APP_ADHOC": "IOS",
     "MAC_APP_DIRECT": "MAC_OS",
 }
 CERTIFICATE_TYPES = {
     "IOS_APP_STORE": ["DISTRIBUTION", "IOS_DISTRIBUTION"],
     "TVOS_APP_STORE": ["DISTRIBUTION", "IOS_DISTRIBUTION"],
-    "IOS_APP_ADHOC": ["DISTRIBUTION", "IOS_DISTRIBUTION"],
     "MAC_APP_STORE": ["DISTRIBUTION", "MAC_APP_DISTRIBUTION"],
     "MAC_APP_DIRECT": ["DEVELOPER_ID_APPLICATION", "DEVELOPER_ID_APPLICATION_G2"],
 }
@@ -196,6 +194,8 @@ def main():
     ):
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / f"{uuid}.mobileprovision"
+        if path.exists():
+            continue
         path.write_bytes(content)
         installed.append(str(path))
     print(f"Installed profile {profile_name} ({uuid}), expires {attributes['expirationDate']}")
