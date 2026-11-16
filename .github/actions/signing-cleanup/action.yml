@@ -1,0 +1,24 @@
+name: Signing cleanup
+description: Remove the temporary keychain, installed provisioning profiles and the App Store Connect key; run with if always()
+
+runs:
+  using: composite
+  steps:
+    - name: Remove signing material
+      shell: bash
+      run: |
+        if [ -n "${SIGNING_WORK:-}" ] && [ -f "$SIGNING_WORK/search-list" ]; then
+          xargs security list-keychains -d user -s < "$SIGNING_WORK/search-list" || true
+        fi
+        if [ -n "${SIGNING_KEYCHAIN:-}" ]; then
+          security delete-keychain "$SIGNING_KEYCHAIN" || true
+        fi
+        if [ -n "${SIGNING_WORK:-}" ]; then
+          rm -rf "$SIGNING_WORK"
+        fi
+        if [ -n "${PROVISIONING_PROFILE_PATHS:-}" ]; then
+          while IFS= read -r profile; do
+            [ -n "$profile" ] && rm -f "$profile"
+          done <<< "$PROVISIONING_PROFILE_PATHS"
+        fi
+        rm -rf "$RUNNER_TEMP/private_keys"

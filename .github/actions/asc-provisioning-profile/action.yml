@@ -1,0 +1,50 @@
+name: App Store Connect provisioning profile
+description: Find or recreate a provisioning profile by name through the App Store Connect API and install it
+
+inputs:
+  bundle-id:
+    description: Bundle identifier registered in the developer account
+    required: true
+  profile-name:
+    description: Profile name the project refers to in PROVISIONING_PROFILE_SPECIFIER
+    required: true
+  profile-type:
+    description: IOS_APP_STORE, TVOS_APP_STORE, MAC_APP_STORE or MAC_APP_DIRECT
+    required: false
+    default: IOS_APP_STORE
+  certificate-serial:
+    description: Serial number of the signing certificate (output of signing-keychain)
+    required: true
+  key-path:
+    description: App Store Connect .p8 path (output of asc-api-key)
+    required: true
+  key-id:
+    description: App Store Connect API key id
+    required: true
+  issuer-id:
+    description: App Store Connect API issuer id
+    required: true
+
+outputs:
+  uuid:
+    description: Installed profile UUID
+    value: ${{ steps.profile.outputs.uuid }}
+  name:
+    description: Installed profile name
+    value: ${{ steps.profile.outputs.name }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install provisioning profile
+      id: profile
+      shell: bash
+      env:
+        BUNDLE_ID: ${{ inputs.bundle-id }}
+        PROFILE_NAME: ${{ inputs.profile-name }}
+        PROFILE_TYPE: ${{ inputs.profile-type }}
+        CERTIFICATE_SERIAL: ${{ inputs.certificate-serial }}
+        KEY_PATH: ${{ inputs.key-path }}
+        KEY_ID: ${{ inputs.key-id }}
+        ISSUER_ID: ${{ inputs.issuer-id }}
+      run: python3 -I "$GITHUB_ACTION_PATH/profile.py"

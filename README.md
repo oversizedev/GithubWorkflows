@@ -32,8 +32,11 @@ Every Xcode workflow accepts `runs-on`, `xcode-version` and `timeout-minutes`.
 - `.github/actions/xcode-prepare` — generate the project, cache SwiftPM on hosted runners, resolve packages, output `-project`/`-workspace`
 - `.github/actions/simulator-destination` — destination for the newest available simulator
 - `.github/actions/asc-api-key` — write the App Store Connect `.p8` key to `$RUNNER_TEMP`
-- `.github/actions/xcode-archive` — check the archive configuration against `disallowed-configurations`, compute the build number (`build-number` or `github.run_number + build-number-offset`) and archive with `signing: automatic` (cloud signing through the App Store Connect key) or `signing: adhoc` (re-signed by export)
-- `.github/actions/xcode-export` — write `ExportOptions.plist` for `method`, `destination`, `signing-style` and `signing-certificate`, then run `xcodebuild -exportArchive` (with the App Store Connect key when given)
+- `.github/actions/xcode-archive` — check the archive configuration against `disallowed-configurations`, compute the build number (`build-number` or `github.run_number + build-number-offset`) and archive with `signing: automatic` (cloud signing through the App Store Connect key), `signing: manual` (the project's own signing settings) or `signing: adhoc` (re-signed by export)
+- `.github/actions/xcode-export` — write `ExportOptions.plist` for `method`, `destination`, `signing-style`, `signing-certificate` and `provisioning-profiles`, then run `xcodebuild -exportArchive` (with the App Store Connect key when given)
+- `.github/actions/signing-keychain` — import a `.p12` into a temporary keychain on the search list, output the identity and certificate serial
+- `.github/actions/asc-provisioning-profile` — keep a provisioning profile with a fixed name active through the App Store Connect API (recreated when it is invalid, expires within 7 days or lacks the certificate) and install it
+- `.github/actions/signing-cleanup` — remove the temporary keychain, installed profiles and the `.p8` key (`if: always()`)
 
 ## Secrets
 
@@ -43,12 +46,19 @@ Every Xcode workflow accepts `runs-on`, `xcode-version` and `timeout-minutes`.
 | `ASC_KEY_ID`, `ASC_ISSUER_ID` | App Store Connect API key (Admin role, needed for cloud signing) |
 | `ASC_PRIVATE_KEY` | Contents of `AuthKey_<id>.p8`: PEM, its base64, or the key body without the `BEGIN`/`END` lines |
 | `DEVELOPER_ID_P12`, `DEVELOPER_ID_P12_PASSWORD` | Developer ID Application certificate with its private key as base64 `.p12`, and its password (`build-dmg.yml`) |
+| `DISTRIBUTION_P12`, `DISTRIBUTION_P12_PASSWORD` | Apple Distribution certificate with its private key as base64 `.p12`, and its password (`testflight.yml` with `signing: manual`) |
 
 ## TestFlight
 
 `testflight.yml` runs `xcodebuild archive` and `xcodebuild -exportArchive` with `method=app-store-connect` and
 `destination=upload`. Signing is automatic through the API key (`-allowProvisioningUpdates`), so no certificates or
 profiles are stored in secrets. `CFBundleVersion` is `github.run_number + build-number-offset`.
+
+Automatic signing archives with a development certificate, which a runner without an unlocked login keychain does not
+have. On such runners use `signing: manual`: the archive configuration of the app target sets
+`CODE_SIGN_STYLE: Manual`, `CODE_SIGN_IDENTITY: Apple Distribution` and `PROVISIONING_PROFILE_SPECIFIER: <profile-name>`;
+the workflow imports `DISTRIBUTION_P12` into a temporary keychain and keeps the profile `profile-name` for `bundle-id`
+active through the API key. Pass `bundle-id` and `profile-name` (and `profile-type: MAC_APP_STORE` for macOS).
 
 ```yaml
 on:

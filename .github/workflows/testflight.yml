@@ -46,6 +46,26 @@ on:
         description: Space-separated configurations that must never reach App Store Connect
         required: false
         default: Debug
+      signing:
+        type: string
+        description: automatic (cloud signing, needs a development certificate on the runner) or manual (Apple Distribution .p12 and a profile managed through the API)
+        required: false
+        default: automatic
+      bundle-id:
+        type: string
+        description: App bundle identifier; required for manual signing
+        required: false
+        default: ""
+      profile-name:
+        type: string
+        description: Provisioning profile name the project sets in PROVISIONING_PROFILE_SPECIFIER; required for manual signing
+        required: false
+        default: ""
+      profile-type:
+        type: string
+        description: Profile type for manual signing (IOS_APP_STORE, TVOS_APP_STORE or MAC_APP_STORE)
+        required: false
+        default: IOS_APP_STORE
       upload:
         type: boolean
         description: Upload to App Store Connect; false exports the signed package as an artifact
@@ -85,6 +105,10 @@ on:
         required: true
       ASC_PRIVATE_KEY:
         required: true
+      DISTRIBUTION_P12:
+        required: false
+      DISTRIBUTION_P12_PASSWORD:
+        required: false
     outputs:
       build-number:
         description: Archived CFBundleVersion
@@ -109,6 +133,26 @@ jobs:
       ARCHIVE_PATH: ${{ github.workspace }}/build/App.xcarchive
       EXPORT_PATH: ${{ github.workspace }}/build/Export
     steps:
+      - name: Check signing inputs
+        env:
+          SIGNING: ${{ inputs.signing }}
+          BUNDLE_ID: ${{ inputs.bundle-id }}
+          PROFILE_NAME: ${{ inputs.profile-name }}
+        run: |
+          case "$SIGNING" in
+            automatic) ;;
+            manual)
+              if [ -z "$BUNDLE_ID" ] || [ -z "$PROFILE_NAME" ]; then
+                echo "::error::Manual signing needs bundle-id and profile-name"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::signing must be automatic or manual, got $SIGNING"
+              exit 1
+              ;;
+          esac
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -136,6 +180,28 @@ jobs:
           key-id: ${{ secrets.ASC_KEY_ID }}
           private-key: ${{ secrets.ASC_PRIVATE_KEY }}
 
+      - name: Import Apple Distribution certificate
+        id: identity
+        if: inputs.signing == 'manual'
+        uses: oversizedev/GithubWorkflows/.github/actions/signing-keychain@main
+        with:
+          p12: ${{ secrets.DISTRIBUTION_P12 }}
+          p12-password: ${{ secrets.DISTRIBUTION_P12_PASSWORD }}
+          certificate: Apple Distribution
+          team-id: ${{ inputs.team-id }}
+
+      - name: Install provisioning profile
+        if: inputs.signing == 'manual'
+        uses: oversizedev/GithubWorkflows/.github/actions/asc-provisioning-profile@main
+        with:
+          bundle-id: ${{ inputs.bundle-id }}
+          profile-name: ${{ inputs.profile-name }}
+          profile-type: ${{ inputs.profile-type }}
+          certificate-serial: ${{ steps.identity.outputs.serial }}
+          key-path: ${{ steps.asc-key.outputs.key-path }}
+          key-id: ${{ secrets.ASC_KEY_ID }}
+          issuer-id: ${{ secrets.ASC_ISSUER_ID }}
+
       - name: Archive
         id: archive
         uses: oversizedev/GithubWorkflows/.github/actions/xcode-archive@main
@@ -151,7 +217,7 @@ jobs:
           team-id: ${{ inputs.team-id }}
           build-number: ${{ inputs.build-number }}
           build-number-offset: ${{ inputs.build-number-offset }}
-          signing: automatic
+          signing: ${{ inputs.signing }}
           key-path: ${{ steps.asc-key.outputs.key-path }}
           key-id: ${{ secrets.ASC_KEY_ID }}
           issuer-id: ${{ secrets.ASC_ISSUER_ID }}
@@ -164,6 +230,9 @@ jobs:
           method: app-store-connect
           destination: ${{ inputs.upload && 'upload' || 'export' }}
           team-id: ${{ inputs.team-id }}
+          signing-style: ${{ inputs.signing }}
+          signing-certificate: ${{ inputs.signing == 'manual' && 'Apple Distribution' || '' }}
+          provisioning-profiles: ${{ inputs.signing == 'manual' && format('{0}={1}', inputs.bundle-id, inputs.profile-name) || '' }}
           key-path: ${{ steps.asc-key.outputs.key-path }}
           key-id: ${{ secrets.ASC_KEY_ID }}
           issuer-id: ${{ secrets.ASC_ISSUER_ID }}
@@ -192,6 +261,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Remove App Store Connect key
+      - name: Remove signing material
         if: always()
-        run: rm -rf "$RUNNER_TEMP/private_keys"
+        uses: oversizedev/GithubWorkflows/.github/actions/signing-cleanup@main
