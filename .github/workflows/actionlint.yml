@@ -27,3 +27,6 @@ jobs:
 
       - name: Lint workflows
         run: actionlint -color
+
+      - name: Test signing keychain
+        run: python3 .github/scripts/test_signing_keychain.py

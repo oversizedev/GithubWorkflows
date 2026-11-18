@@ -42,6 +42,7 @@ runs:
         CERTIFICATE: ${{ inputs.certificate }}
         TEAM_ID: ${{ inputs.team-id }}
         INTERMEDIATES: ${{ inputs.intermediates }}
+        INTERMEDIATE_CERTIFICATES_PATH: ${{ github.action_path }}/certificates
       run: |
         set -euo pipefail
         if [ -z "$P12_BASE64" ]; then
@@ -65,8 +66,12 @@ runs:
           -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild
         rm -f "$work/certificate.p12"
         for authority in $INTERMEDIATES; do
-          curl -fsSL "https://www.apple.com/certificateauthority/$authority.cer" -o "$work/$authority.cer"
-          security import "$work/$authority.cer" -k "$keychain" > /dev/null || true
+          certificate_path="$INTERMEDIATE_CERTIFICATES_PATH/$authority.cer"
+          if [ ! -f "$certificate_path" ]; then
+            certificate_path="$work/$authority.cer"
+            curl -fsSL "https://www.apple.com/certificateauthority/$authority.cer" -o "$certificate_path"
+          fi
+          security import "$certificate_path" -k "$keychain" > /dev/null || true
         done
         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
         xargs security list-keychains -d user -s "$keychain" < "$work/search-list"
