@@ -50,6 +50,15 @@ Every Xcode workflow accepts `runs-on`, `xcode-version` and `timeout-minutes`.
 
 ## TestFlight
 
+The signing keychain action bundles the default public Apple intermediates (`AppleWWDRCAG3`, `DeveloperIDG2CA`
+and `DeveloperIDCA`) from [Apple PKI](https://www.apple.com/certificateauthority/). It imports these local files
+so signing does not depend on resolving `www.apple.com` during every job. Custom `intermediates` names still
+download from Apple, and signing identities must pass the existing validity and team checks.
+
+The bundled certificates expire on 2030-02-20, 2031-09-17 and 2027-02-01, respectively. Refresh them from Apple
+before expiration and update their pinned SHA-256 hashes in `.github/scripts/test_signing_keychain.py`.
+Run that script to verify certificate integrity, expiration, offline default imports and custom-name fallback.
+
 `testflight.yml` runs `xcodebuild archive` and `xcodebuild -exportArchive` with `method=app-store-connect` and
 `destination=upload`. Signing is automatic through the API key (`-allowProvisioningUpdates`), so no certificates or
 profiles are stored in secrets. `CFBundleVersion` is `github.run_number + build-number-offset`.
