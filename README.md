@@ -66,7 +66,9 @@ fallback.
 `destination=upload`. With `signing: automatic` it signs through the API key (`-allowProvisioningUpdates`) and needs a
 development certificate on the runner. With `signing: manual` it imports `DISTRIBUTION_P12`, keeps the
 `profile-name` profile active through the API and archives with the project's own signing settings.
-`CFBundleVersion` is `github.run_number + build-number-offset`.
+`CFBundleVersion` is `github.run_number + build-number-offset`. Uploads share one concurrency group per repository and
+scheme and never cancel each other; `upload: false` exports use a separate group per ref, so a pull request export
+cannot replace a pending upload from the default branch.
 
 Automatic signing archives with a development certificate, which a runner without an unlocked login keychain does not
 have. On such runners use `signing: manual`: the archive configuration of the app target sets
