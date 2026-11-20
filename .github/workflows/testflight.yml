@@ -123,8 +123,8 @@ jobs:
     runs-on: ${{ inputs.runs-on != '' && fromJSON(inputs.runs-on) || github.event.repository.private && fromJSON('["self-hosted","macOS","ARM64","xcode"]') || 'xcode-27' }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     concurrency:
-      group: testflight-${{ github.repository }}-${{ inputs.scheme }}
-      cancel-in-progress: false
+      group: testflight-${{ github.repository }}-${{ inputs.scheme }}${{ !inputs.upload && format('-export-{0}', github.ref) || '' }}
+      cancel-in-progress: ${{ !inputs.upload }}
     outputs:
       build-number: ${{ steps.archive.outputs.build-number }}
     env:

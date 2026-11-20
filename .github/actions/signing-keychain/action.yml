@@ -17,7 +17,7 @@ inputs:
   intermediates:
     description: Space-separated Apple intermediate certificate names from apple.com/certificateauthority
     required: false
-    default: AppleWWDRCAG3 DeveloperIDG2CA DeveloperIDCA
+    default: AppleWWDRCAG3 DeveloperIDG2CA
 
 outputs:
   identity:
@@ -67,11 +67,23 @@ runs:
         rm -f "$work/certificate.p12"
         for authority in $INTERMEDIATES; do
           certificate_path="$INTERMEDIATE_CERTIFICATES_PATH/$authority.cer"
-          if [ ! -f "$certificate_path" ]; then
+          expected_hash=$(awk -v file="$authority.cer" '$2 == file { print $1 }' "$INTERMEDIATE_CERTIFICATES_PATH/checksums.sha256")
+          if [ -n "$expected_hash" ] || [ -f "$certificate_path" ]; then
+            actual_hash=$(shasum -a 256 "$certificate_path" 2>/dev/null | awk '{print $1}' || true)
+            if [ -z "$expected_hash" ] || [ "$actual_hash" != "$expected_hash" ]; then
+              echo "::error::Bundled intermediate $authority does not match its pinned SHA-256 in checksums.sha256"
+              exit 1
+            fi
+          else
             certificate_path="$work/$authority.cer"
             curl -fsSL "https://www.apple.com/certificateauthority/$authority.cer" -o "$certificate_path"
           fi
-          security import "$certificate_path" -k "$keychain" > /dev/null || true
+          if ! import_output=$(security import "$certificate_path" -k "$keychain" 2>&1); then
+            if ! printf '%s' "$import_output" | grep -q "already exists"; then
+              echo "::error::Cannot import intermediate $authority: $import_output"
+              exit 1
+            fi
+          fi
         done
         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
         xargs security list-keychains -d user -s "$keychain" < "$work/search-list"

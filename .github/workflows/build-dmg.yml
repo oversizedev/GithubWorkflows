@@ -197,7 +197,7 @@ jobs:
           p12-password: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
           certificate: Developer ID Application
           team-id: ${{ inputs.team-id }}
-          intermediates: DeveloperIDG2CA DeveloperIDCA
+          intermediates: DeveloperIDG2CA
 
       - name: Export with Developer ID
         uses: oversizedev/GithubWorkflows/.github/actions/xcode-export@main

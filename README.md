@@ -50,18 +50,25 @@ Every Xcode workflow accepts `runs-on`, `xcode-version` and `timeout-minutes`.
 
 ## TestFlight
 
-The signing keychain action bundles the default public Apple intermediates (`AppleWWDRCAG3`, `DeveloperIDG2CA`
-and `DeveloperIDCA`) from [Apple PKI](https://www.apple.com/certificateauthority/). It imports these local files
-so signing does not depend on resolving `www.apple.com` during every job. Custom `intermediates` names still
-download from Apple, and signing identities must pass the existing validity and team checks.
+The signing keychain action bundles the default public Apple intermediates (`AppleWWDRCAG3` and `DeveloperIDG2CA`)
+from [Apple PKI](https://www.apple.com/certificateauthority/). It imports these local files so signing does not
+depend on resolving `www.apple.com` during every job, and stops when a bundled file does not match its SHA-256 in
+`certificates/checksums.sha256`. Custom `intermediates` names still download from Apple. An intermediate that is
+already in the keychain is skipped; any other import error stops the job. Signing identities must pass the existing
+validity and team checks.
 
-The bundled certificates expire on 2030-02-20, 2031-09-17 and 2027-02-01, respectively. Refresh them from Apple
-before expiration and update their pinned SHA-256 hashes in `.github/scripts/test_signing_keychain.py`.
-Run that script to verify certificate integrity, expiration, offline default imports and custom-name fallback.
+The bundled certificates expire on 2030-02-20 and 2031-09-17, respectively. Refresh them from Apple before
+expiration and update their hashes in `certificates/checksums.sha256` and `.github/scripts/test_signing_keychain.py`.
+Run that script to verify certificate integrity, expiration, offline default imports, import errors and custom-name
+fallback.
 
 `testflight.yml` runs `xcodebuild archive` and `xcodebuild -exportArchive` with `method=app-store-connect` and
-`destination=upload`. Signing is automatic through the API key (`-allowProvisioningUpdates`), so no certificates or
-profiles are stored in secrets. `CFBundleVersion` is `github.run_number + build-number-offset`.
+`destination=upload`. With `signing: automatic` it signs through the API key (`-allowProvisioningUpdates`) and needs a
+development certificate on the runner. With `signing: manual` it imports `DISTRIBUTION_P12`, keeps the
+`profile-name` profile active through the API and archives with the project's own signing settings.
+`CFBundleVersion` is `github.run_number + build-number-offset`. Uploads share one concurrency group per repository and
+scheme and never cancel each other; `upload: false` exports use a separate group per ref, so a pull request export
+cannot replace a pending upload from the default branch.
 
 Automatic signing archives with a development certificate, which a runner without an unlocked login keychain does not
 have. On such runners use `signing: manual`: the archive configuration of the app target sets
